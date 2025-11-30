@@ -1,0 +1,38 @@
+[package]
+name = "maker_web"
+version = "0.1.0"
+description = "High-performance, zero-allocation HTTP server for microservices"
+authors = ["AmakeSashaDev <amakesasha@gmail.com>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/AmakeSashaDev/maker_web"
+homepage = "https://github.com/AmakeSashaDev/maker_web"
+documentation = "https://docs.rs/maker_web"
+readme = "README.md"
+keywords = ["http", "server", "microservices", "performance", "async"]
+categories = ["web-programming", "asynchronous", "network-programming"]
+rust-version = "1.75"
+edition = "2021"
+
+[dependencies]
+crossbeam = "0.8.4"
+memchr = "2.7.5"
+tokio = { version = "1.21.2", features = ["net", "io-util", "rt", "rt-multi-thread", "sync", "time", "macros"] }
+
+[features]
+default = ["http-json-error"]
+http-json-error = []
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = 'abort'
+strip = true
+incremental = false
+
+debug = false
+debug-assertions = false
+overflow-checks = false
+
+[profile.release.package."*"]
+opt-level = 3
