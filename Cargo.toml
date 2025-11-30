@@ -36,3 +36,7 @@ overflow-checks = false
 
 [profile.release.package."*"]
 opt-level = 3
+version = "0.0.0"
+description = "High-performance HTTP server - maker_web"
+authors = ["Your Name <amakesasha@gmail.com>"]
+license = "MIT OR Apache-2.0"
