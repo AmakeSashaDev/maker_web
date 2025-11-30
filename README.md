@@ -64,7 +64,7 @@ async fn main() {
 Check the [examples directory](https://github.com/AmakeSashaDev/maker_web/blob/main/examples) for comprehensive usage examples.
 
 ## Support the author
-Visit the [support page](https://github.com/AmakeSashaDev/maker_web/blob/main/docs/index.html) to learn how you can support this project.
+Visit the [support page](https://amakesashadev.github.io/maker_web/) to learn how you can support this project.
 
 ## License
 
