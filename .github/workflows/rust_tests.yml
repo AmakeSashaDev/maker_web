@@ -1,0 +1,38 @@
+name: Full code review
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  platforms:
+    name: "${{ matrix.os }}"
+    runs-on: ${{ matrix.os }} 
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy
+    
+    - uses: Swatinem/rust-cache@v2
+    
+    - name: Build
+      run: cargo build --all-features
+      
+    - name: Run tests
+      run: cargo test --all-features
+      
+    - name: Clippy
+      run: cargo clippy -- -D warnings
