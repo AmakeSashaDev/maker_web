@@ -126,7 +126,7 @@ pub(crate) mod http {
 }
 pub(crate) mod server {
     pub(crate) mod connection;
-    pub(crate) mod server;
+    pub(crate) mod server_impl;
 }
 pub(crate) mod errors;
 pub mod limits;
@@ -143,7 +143,7 @@ pub use crate::{
     },
     server::{
         connection::ConnectionData,
-        server::{Handler, Server, ServerBuilder},
+        server_impl::{Handler, Server, ServerBuilder},
     },
 };
 

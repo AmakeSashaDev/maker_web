@@ -170,7 +170,7 @@ macro_rules! set_status_codes {
         impl StatusCode {
             // Returns the HTTP first line as bytes (e.g., `b"HTTP/1.1 200 OK\r\n"`).
             #[inline]
-            pub(crate) const fn into_first_line(&self, version: Version) -> &'static [u8] {
+            pub(crate) const fn to_first_line(self, version: Version) -> &'static [u8] {
                 match (self, version) { $(
                     (StatusCode::$name, Version::Http11) => {
                         concat!("HTTP/1.1 ", $num, " ", $str, "\r\n").as_bytes()

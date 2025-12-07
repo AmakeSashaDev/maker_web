@@ -170,7 +170,7 @@ impl Response {
         );
 
         self.buffer
-            .extend_from_slice(status.into_first_line(self.version));
+            .extend_from_slice(status.to_first_line(self.version));
         self.state = ResponseState::Headers;
         self
     }
@@ -669,7 +669,7 @@ impl Response {
         self.buffer
             .extend_from_slice(Self::get_prefix(&status).as_bytes());
         self.buffer
-            .extend_from_slice(status.into_first_line(Version::Http09));
+            .extend_from_slice(status.to_first_line(Version::Http09));
 
         self.state = ResponseState::Complete;
         Handled(())
@@ -994,7 +994,7 @@ mod close_tests {
                 str_op(&resp.buffer),
                 format!(
                     "{}{header}content-length: 0000000000\r\n\r\n",
-                    str_op(StatusCode::Ok.into_first_line(version))
+                    str_op(StatusCode::Ok.to_first_line(version))
                 )
             );
         }

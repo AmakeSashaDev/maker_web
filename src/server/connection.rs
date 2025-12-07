@@ -6,7 +6,7 @@ use crate::{
         types::Version,
     },
     limits::{ConnLimits, Http09Limits, ReqLimits, RespLimits},
-    server::server::{AllTypesLimits, Handler},
+    server::server_impl::{AllTypesLimits, Handler},
 };
 use std::{io, sync::Arc, time::Instant};
 use tokio::net::TcpStream;
@@ -230,9 +230,7 @@ pub trait ConnectionData: Sync + Send + 'static {
 
 impl ConnectionData for () {
     #[inline(always)]
-    fn new() -> Self {
-        ()
-    }
+    fn new() -> Self {}
 
     #[inline(always)]
     fn reset(&mut self) {}
