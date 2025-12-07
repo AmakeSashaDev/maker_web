@@ -4,29 +4,29 @@ This directory contains examples of using the maker_web library. Each example is
 
 ## List
 
-### Multilingual "Hello, world!" 
-**File:** `hello_world_multilang.rs`
+### [Multilingual Greeting](examples/multilingual_greeting.md)
+**File:** [`multilingual_greeting.rs`](examples/multilingual_greeting.rs)
 
 A simple HTTP server that returns "Hello World!" in different languages depending on the first segment of the URL path.
 
 ---
 
-### Request Counter
-**File:** `request_counter.rs`
+### [Request Counter](examples/request_counter.md)
+**File:** [`request_counter.rs`](examples/request_counter.rs)
 
 A simple HTTP server that counts connection requests. Each connection has its own counter.
 
 ---
 
-### Echo Service
-**File:** `echo.rs`
+### [Echo Service](examples/echo.md)
+**File:** [`echo.rs`](examples/echo.rs)
 
 A simple HTTP echo server that returns the url and request body in JSON format.
 
 ---
 
-### Request Inspector
-**File** `request_inspector.rs`
+### [Request Inspector](examples/request_inspector.md)
+**File:** [`request_inspector.rs`](examples/request_inspector.rs)
 
 A debug HTTP server that shows detailed information about incoming requests. Returns method, path, headers (if present), and body as JSON
 
