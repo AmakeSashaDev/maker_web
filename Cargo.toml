@@ -9,7 +9,7 @@ homepage = "https://github.com/AmakeSashaDev/maker_web"
 documentation = "https://docs.rs/maker_web"
 readme = "README.md"
 keywords = ["http", "server", "microservices", "performance", "async"]
-categories = ["web-programming", "asynchronous", "network-programming"]
+categories = ["web-programming::http-server", "asynchronous", "network-programming"]
 rust-version = "1.75"
 edition = "2021"
 
@@ -29,14 +29,23 @@ codegen-units = 1
 panic = 'abort'
 strip = true
 incremental = false
-
 debug = false
 debug-assertions = false
 overflow-checks = false
 
-[profile.release.package."*"]
-opt-level = 3
-version = "0.0.0"
-description = "High-performance HTTP server - maker_web"
-authors = ["Your Name <amakesasha@gmail.com>"]
-license = "MIT OR Apache-2.0"
+[[example]] # Multilingual greeting API
+name = "multilingual_greeting"
+path = "examples/multilingual_greeting.rs"
+
+[[example]] # Per-connection request counter
+name = "request_counter"  
+path = "examples/request_counter.rs"
+
+[[example]] # Echo service that returns request data
+name = "echo"
+path = "examples/echo.rs"
+
+[[example]] # Request inspector for debugging
+name = "request_inspector"
+path = "examples/request_inspector.rs"
+

@@ -48,9 +48,9 @@
 //! ```no_run
 //! use maker_web::{Handled, Handler, Request, Response, Server, StatusCode};
 //! use tokio::net::TcpListener;
-//! 
+//!
 //! struct MyHandler;
-//! 
+//!
 //! impl Handler<()> for MyHandler {
 //!     async fn handle(&self, _: &mut (), req: &Request, resp: &mut Response) -> Handled {
 //!         match req.url().path_segments() {
@@ -67,7 +67,7 @@
 //!         }
 //!     }
 //! }
-//! 
+//!
 //! #[tokio::main]
 //! async fn main() {
 //!     Server::builder()
