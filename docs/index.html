@@ -10,133 +10,167 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%2322c55e%22 rx=%2215%22/><text x=%2250%22 y=%2270%22 font-size=%2270%22 text-anchor=%22middle%22 fill=%22white%22>🦀</text></svg>">
+    <meta name="description" content="High-performance, zero-allocation HTTP server for Rust microservices">
+    <meta name="theme-color" content="#22c55e">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="keywords" content="Rust, HTTP server, web framework, microservices, high-performance, maker_web">
+    <meta name="author" content="AmakeSashaDev">
+    <meta property="og:title" content="maker_web - Rust HTTP Server Support">
+    <meta property="og:url" content="https://amakesashadev.github.io/maker_web/">
+    <meta property="og:type" content="website">
+    <meta property="og:description" content="High-performance, zero-allocation HTTP server for Rust microservices">
     <title>maker_web - Support</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            line-height: 1.6;
-            color: #24292e;
-            background: green;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .container {
-            background: white;
-            padding: 3rem;
-            border-radius: 12px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            text-align: center;
-            max-width: 600px;
-            margin: 2rem;
-        }
-        
-        .logo {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-        }
-        
-        h1 {
-            color: #2d3748;
-            margin-bottom: 1.5rem;
-            font-size: 2.5rem;
-        }
-        
-        .message {
-            font-size: 1.2rem;
-            margin-bottom: 2rem;
-            color: #4a5568;
-            line-height: 1.8;
-        }
-        
-        .github-link {
-            display: inline-block;
-            background: #24292e;
-            color: white;
-            padding: 1rem 2rem;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 600;
-            transition: transform 0.2s, box-shadow 0.2s;
-            margin: 0.5rem;
-        }
-        
-        .github-link:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-        }
-        
-        .footer {
-            margin-top: 2rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid #e5e7eb;
-        }
-        
-        .stars {
-            font-size: 1.1rem;
-            color: #6b7280;
-            margin-bottom: 0.5rem;
-        }
-        
-        .heart {
-            color: #e53e3e;
-            animation: pulse 1.5s infinite;
-        }
-        
-        .copyright {
-            font-size: 0.9rem;
-            color: #9ca3af;
-        }
-        
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body data-theme="light">
     <div class="container">
-        <div class="logo">🚀</div>
-        <h1>maker_web</h1>
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+            <div class="binary-switch">
+                <div class="binary-digit digit-0 active">0</div>
+                <div class="binary-digit digit-1">1</div>
+                <div class="binary-slider"></div>
+            </div>
+        </button>
         
-        <div class="message">
-            <p>Currently, there's no way to support me financially, but you can:</p>
-            <p>⭐ <strong>Star the project on GitHub</strong></p>
-            <p>👥 <strong>Recommend it to your friends</strong></p>
-            <p>Right now, this would be the best support for me 😊</p>
+        <div class="header-section">
+            <div class="logo">🦀</div>
+            <div class="title-slogan">
+                <h1>maker_web</h1>
+                <p class="slogan">High-performance, zero-allocation HTTP server for microservices</p>
+            </div>
         </div>
         
-        <a href="https://crates.io/crates/maker_web" class="github-link" target="_blank">
-            📦 Download from crates.io
-        </a>
-
-        <a href="https://github.com/AmakeSashaDev/maker_web" class="github-link" target="_blank">
-            🌟 Star on GitHub
-        </a>
+        <div class="stats">
+            <div class="stat-skeleton">
+                <span class="stat-number" id="downloads">
+                    <span class="skeleton skeleton-stat"></span>
+                </span>
+                <span class="stat-label">Downloads</span>
+            </div>
+            
+            <div class="stat-skeleton">
+                <span class="stat-number" id="stars">
+                    <span class="skeleton skeleton-stat"></span>
+                </span>
+                <span class="stat-label">GitHub Stars</span>
+            </div>
+            
+            <div class="stat-skeleton">
+                <span class="stat-number" id="version">
+                    <span class="skeleton skeleton-stat" style="width: 40px;"></span>
+                </span>
+                <span class="stat-label">Version</span>
+            </div>
+        </div>
         
-        <a href="https://github.com/AmakeSashaDev/maker_web" class="github-link" target="_blank">
-            📂 View Repository
-        </a>
+        <div class="support-box">
+            <div class="box-header">
+                <span class="box-icon">🤝</span>
+                <h3>Support the project</h3>
+            </div>
+            
+            <div class="box-content">
+                <a href="https://github.com/AmakeSashaDev/maker_web" class="support-link" target="_blank">
+                    <div class="support-icon">⭐</div>
+                    <div class="support-text">
+                        <strong>Star the repository</strong>
+                        <span>Help the project grow with a GitHub star</span>
+                    </div>
+                </a>
+                
+                <a href="https://github.com/AmakeSashaDev/maker_web/issues" class="support-link" target="_blank">
+                    <div class="support-icon">🐛</div>
+                    <div class="support-text">
+                        <strong>Report an issue</strong>
+                        <span>Found a bug? Need a feature? Let me know!</span>
+                    </div>
+                </a>
+                
+                <a href="#" class="support-link" id="shareLink">
+                    <div class="support-icon">📢</div>
+                    <div class="support-text">
+                        <strong>Share with friends</strong>
+                        <span>Recommend to fellow developers</span>
+                    </div>
+                </a>
+            </div>
+            
+            <div class="box-note">
+                Currently, there's no way to support me financially.<br>
+                Right now, these actions would be the best support for me 😊
+            </div>
+        </div>
+        
+        <div class="support-box get-started-box">
+            <div class="box-header">
+                <span class="box-icon">🚀</span>
+                <h3>Get started</h3>
+            </div>
+            
+            <div class="box-content">
+                <a href="https://crates.io/crates/maker_web" class="support-link" target="_blank">
+                    <div class="support-icon">📦</div>
+                    <div class="support-text">
+                        <strong>Download from crates.io</strong>
+                        <span>Add maker_web to your project</span>
+                    </div>
+                </a>
+                
+                <a href="https://docs.rs/maker_web/latest/maker_web/" class="support-link" target="_blank">
+                    <div class="support-icon">📖</div>
+                    <div class="support-text">
+                        <strong>Read documentation</strong>
+                        <span>Complete API reference on docs.rs</span>
+                    </div>
+                </a>
+                
+                <a href="https://github.com/AmakeSashaDev/maker_web/blob/main/EXAMPLES.md" 
+                   class="support-link" target="_blank">
+                    <div class="support-icon">📚</div>
+                    <div class="support-text">
+                        <strong>Check examples</strong>
+                        <span>Learn with practical code examples</span>
+                    </div>
+                </a>
+            </div>
+        </div>
         
         <div class="footer">
             <div class="stars">
                 Made with <span class="heart">❤️</span> for the Rust community
+                <span style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-top: 0.3rem;">
+                    Live stats from crates.io & GitHub
+                </span>
             </div>
             <div class="copyright">
-                © 2025 AmakeSashaDev. All rights reserved.
+                © <span id="currentYear">2025</span> AmakeSashaDev. All rights reserved.
             </div>
         </div>
     </div>
+
+    <div class="share-overlay" id="shareOverlay">
+        <div class="share-modal">
+            <h3>📢 Share maker_web</h3>
+            <p>Copy this link to share with friends:</p>
+            <div class="share-link-container">
+                <input type="text" readonly value="https://github.com/AmakeSashaDev/maker_web" 
+                       id="shareUrl" class="share-url">
+                <button class="copy-button" id="copyButton">Copy</button>
+            </div>
+            <div class="share-tips">
+                <p><strong>Tip:</strong> Share with developers who work with:</p>
+                <ul>
+                    <li>🦀 Rust web development</li>
+                    <li>🚀 Fast prototyping</li>
+                    <li>⚡ Performance-critical applications</li>
+                </ul>
+            </div>
+            <button class="close-button" id="closeShare">Close</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
 </body>
 </html>
