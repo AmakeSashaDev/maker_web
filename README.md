@@ -25,7 +25,7 @@
 
 ## Production Ready
 - Graceful degradation — automatic 503 responses during overload
-- [Configurable error format](https://docs.rs/maker_web/latest/maker_web/limits/struct.ServerLimits.html#structfield.json_errors) — structured JSON (with codes/descriptions) or plain text
+- [Configurable error format](https://docs.rs/maker_web/latest/maker_web/limits/struct.ServerLimits.html#structfield.json_errors) — structured JSON (with codes/descriptions) or plain HTTP response
 - Resource protection — auto-close connections exceeding configured limits
 
 # Benchmarks
