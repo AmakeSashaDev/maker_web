@@ -1,4 +1,4 @@
-name: Full code review
+name: CI
 
 on:
   push:
