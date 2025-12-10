@@ -1,148 +1,237 @@
-<!-- 
-    Please forgive me for posting a broken link, here is the support site: 
-
-    https://amakesashadev.github.io/maker_web/
-    https://amakesashadev.github.io/maker_web/
-    https://amakesashadev.github.io/maker_web/
-
-    And again, sorry about that.
--->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%2322c55e%22 rx=%2215%22/><text x=%2250%22 y=%2270%22 font-size=%2270%22 text-anchor=%22middle%22 fill=%22white%22>🦀</text></svg>">
-    <meta name="description" content="High-performance, zero-allocation HTTP server for Rust microservices">
-    <meta name="theme-color" content="#22c55e">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="keywords" content="Rust, HTTP server, web framework, microservices, high-performance, maker_web">
-    <meta name="author" content="AmakeSashaDev">
-    <meta property="og:title" content="maker_web - Rust HTTP Server Support">
-    <meta property="og:url" content="https://amakesashadev.github.io/maker_web/">
-    <meta property="og:type" content="website">
-    <meta property="og:description" content="High-performance, zero-allocation HTTP server for Rust microservices">
-    <title>maker_web - Support</title>
+    <title>maker_web - Rust HTTP Server</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%2322c55e%22 rx=%2215%22/><text x=%2250%22 y=%2270%22 font-size=%2270%22 text-anchor=%22middle%22 fill=%22white%22>🦀</text></svg>">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body data-theme="light">
     <div class="container">
         <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
-            <div class="binary-switch">
-                <div class="binary-digit digit-0 active">0</div>
-                <div class="binary-digit digit-1">1</div>
-                <div class="binary-slider"></div>
-            </div>
+            <span class="theme-icon sun">☀️</span>
+            <span class="theme-icon moon">🌙</span>
         </button>
         
-        <div class="header-section">
-            <div class="logo">🦀</div>
-            <div class="title-slogan">
-                <h1>maker_web</h1>
-                <p class="slogan">High-performance, zero-allocation HTTP server for microservices</p>
+        <div class="cards-row">
+            <div class="card right-card">
+                <div class="header-section">
+                    <div class="logo">🦀</div>
+                    <div class="title-slogan">
+                        <h1>maker_web</h1>
+                        <p class="slogan">High-performance, zero-allocation HTTP server for microservices</p>
+                    </div>
+                </div>
+                
+                <div class="stats">
+                    <div class="stat-skeleton">
+                        <span class="stat-number" id="downloads">
+                            <span class="skeleton skeleton-stat"></span>
+                        </span>
+                        <span class="stat-label">Downloads</span>
+                    </div>
+                    
+                    <div class="stat-skeleton">
+                        <span class="stat-number" id="stars">
+                            <span class="skeleton skeleton-stat"></span>
+                        </span>
+                        <span class="stat-label">GitHub Stars</span>
+                    </div>
+                    
+                    <div class="stat-skeleton">
+                        <span class="stat-number" id="version">
+                            <span class="skeleton skeleton-stat" style="width: 40px;"></span>
+                        </span>
+                        <span class="stat-label">Version</span>
+                    </div>
+                </div>
+                
+                <div class="support-box" data-box-type="get-started">
+                    <div class="box-header">
+                        <span class="box-icon">🚀</span>
+                        <h3>Get started</h3>
+                    </div>
+                    
+                    <div class="box-content">
+                        <a href="https://crates.io/crates/maker_web" class="support-link" target="_blank" rel="noopener noreferrer">
+                            <div class="support-icon">📦</div>
+                            <div class="support-text">
+                                <strong>Download from crates.io</strong>
+                                <span>Add maker_web to your project</span>
+                            </div>
+                        </a>
+                        
+                        <a href="https://github.com/AmakeSashaDev/maker_web/tree/main/examples/" class="support-link" target="_blank" rel="noopener noreferrer">
+                            <div class="support-icon">📖</div>
+                            <div class="support-text">
+                                <strong>Check examples</strong>
+                                <span>Learn with practical code examples</span>
+                            </div>
+                        </a>
+
+                        <a href="https://docs.rs/maker_web/latest/maker_web/" class="support-link" target="_blank" rel="noopener noreferrer">
+                            <div class="support-icon">📚</div>
+                            <div class="support-text">
+                                <strong>Read documentation</strong>
+                                <span>Complete API reference on docs.rs</span>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            
+                <div class="support-box" data-box-type="support">
+                    <div class="box-header">
+                        <span class="box-icon">🤝</span>
+                        <h3>How to contribute</h3>
+                    </div>
+                    
+                    <div class="box-content">
+                        <a href="https://github.com/AmakeSashaDev/maker_web" class="support-link" target="_blank" rel="noopener noreferrer">
+                            <div class="support-icon">⭐</div>
+                            <div class="support-text">
+                                <strong>Star the repository</strong>
+                                <span>Help the project grow with a GitHub star</span>
+                            </div>
+                        </a>
+                        
+                        <a href="https://github.com/AmakeSashaDev/maker_web/issues" class="support-link" target="_blank" rel="noopener noreferrer">
+                            <div class="support-icon">🐛</div>
+                            <div class="support-text">
+                                <strong>Report an issue</strong>
+                                <span>Found a bug? Need a feature? Let me know!</span>
+                            </div>
+                        </a>
+                        
+                        <a href="#" class="support-link" id="shareLink">
+                            <div class="support-icon">📢</div>
+                            <div class="support-text">
+                                <strong>Share with friends</strong>
+                                <span>Recommend to fellow developers</span>
+                            </div>
+                        </a>
+                    </div>
+                    
+                    <div class="box-note">
+                        Currently, there's no way to support me financially.<br>
+                        Right now, these actions would be the best support for me 😊
+                    </div>
+                </div>
+            </div>
+
+            <div class="card left-card">
+                <h2>👨‍💻 From the Author</h2>
+<p>I started <strong>maker_web</strong> without a clear plan, simply wanting to create something useful. The result is a tool that embodies freedom, speed, and security. I don't strive for "convenience" at the expense of freedom. And I love how it turned out.</p>
+                
+<div class="features">
+    <div class="feature">
+        <strong>Security & Protection</strong>
+        <small>Built-in DoS/DDoS protection — zero performance cost</small>
+    </div>
+    <div class="feature">
+        <strong>Zero-Allocation Performance</strong>
+        <small>Zero runtime allocations — predictable performance</small>
+    </div>
+    <div class="feature">
+        <strong>Full HTTP Stack</strong>
+        <small>HTTP/1.1, HTTP/1.0, HTTP/0.9+ with keep‑alive</small>
+    </div>
+    <div class="feature">
+        <strong>Graceful Degradation</strong>
+        <small>Automatic 503 responses during overload</small>
+    </div>
+    <div class="feature">
+        <strong>Configurable Limits</strong>
+        <small>Fully configurable limits & timeouts</small>
+    </div>
+    <div class="feature">
+        <strong>Configurable Errors</strong>
+        <small>Structured JSON or plain HTTP response</small>
+    </div>
+</div>
+                
+                <h2>📚 Usage examples</h2>
+                
+                <div class="api-examples-list">
+                    <div class="api-example">
+                        <div class="example-header">
+                            <span class="example-icon">🌐</span>
+                            <h3>Hello world</h3>
+                            <span class="example-badge">Basic example</span>
+                        </div>
+                        <pre><code class="language-rust">use maker_web::{Handled, Handler, Request, Response, Server, StatusCode};
+use tokio::net::TcpListener;
+
+struct HelloWorld;
+
+impl Handler<()> for HelloWorld {
+    async fn handle(&self, _: &mut (), _: &Request, resp: &mut Response) -> Handled {
+        resp.status(StatusCode::Ok)
+            .header("Content-Type", "text/plain")
+            .body("Hello, world!")
+    }
+}
+
+#[tokio::main]
+async fn main() {
+    Server::builder()
+        .listener(TcpListener::bind("127.0.0.1:8080").await.unwrap())
+        .handler(HelloWorld)
+        .build()
+        .launch()
+        .await;
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="api-examples-list">
+                    <div class="api-example">
+                        <div class="example-header">
+                            <span class="example-icon">🌐</span>
+                            <h3>Routing</h3>
+                            <span class="example-badge">API routing</span>
+                        </div>
+                        <pre><code class="language-rust">use maker_web::{Handled, Handler, Request, Response, Server, StatusCode};
+use tokio::net::TcpListener;
+
+struct MyHandler;
+
+impl Handler<()> for MyHandler {
+    async fn handle(&self, _: &mut (), req: &Request, resp: &mut Response) -> Handled {
+        match req.url().path_segments() {
+            [b"api", user, b"name"] => {
+                resp.status(StatusCode::Ok).body(user)
+            }
+            [b"api", user, b"name", b"len"] => {
+                resp.status(StatusCode::Ok).body(user.len())
+            }
+            [b"api", b"echo", text] => {
+                resp.status(StatusCode::Ok).body(text)
+            }
+            _ => resp.status(StatusCode::NotFound).body("qwe"),
+        }
+    }
+}
+
+#[tokio::main]
+async fn main() {
+    Server::builder()
+        .listener(TcpListener::bind("127.0.0.1:8080").await.unwrap())
+        .handler(MyHandler)
+        .build()
+        .launch()
+        .await;
+}</code></pre>
+                    </div>
+                </div>
             </div>
         </div>
         
-        <div class="stats">
-            <div class="stat-skeleton">
-                <span class="stat-number" id="downloads">
-                    <span class="skeleton skeleton-stat"></span>
-                </span>
-                <span class="stat-label">Downloads</span>
-            </div>
-            
-            <div class="stat-skeleton">
-                <span class="stat-number" id="stars">
-                    <span class="skeleton skeleton-stat"></span>
-                </span>
-                <span class="stat-label">GitHub Stars</span>
-            </div>
-            
-            <div class="stat-skeleton">
-                <span class="stat-number" id="version">
-                    <span class="skeleton skeleton-stat" style="width: 40px;"></span>
-                </span>
-                <span class="stat-label">Version</span>
-            </div>
-        </div>
-        
-        <div class="support-box">
-            <div class="box-header">
-                <span class="box-icon">🤝</span>
-                <h3>Support the project</h3>
-            </div>
-            
-            <div class="box-content">
-                <a href="https://github.com/AmakeSashaDev/maker_web" class="support-link" target="_blank">
-                    <div class="support-icon">⭐</div>
-                    <div class="support-text">
-                        <strong>Star the repository</strong>
-                        <span>Help the project grow with a GitHub star</span>
-                    </div>
-                </a>
-                
-                <a href="https://github.com/AmakeSashaDev/maker_web/issues" class="support-link" target="_blank">
-                    <div class="support-icon">🐛</div>
-                    <div class="support-text">
-                        <strong>Report an issue</strong>
-                        <span>Found a bug? Need a feature? Let me know!</span>
-                    </div>
-                </a>
-                
-                <a href="#" class="support-link" id="shareLink">
-                    <div class="support-icon">📢</div>
-                    <div class="support-text">
-                        <strong>Share with friends</strong>
-                        <span>Recommend to fellow developers</span>
-                    </div>
-                </a>
-            </div>
-            
-            <div class="box-note">
-                Currently, there's no way to support me financially.<br>
-                Right now, these actions would be the best support for me 😊
-            </div>
-        </div>
-        
-        <div class="support-box get-started-box">
-            <div class="box-header">
-                <span class="box-icon">🚀</span>
-                <h3>Get started</h3>
-            </div>
-            
-            <div class="box-content">
-                <a href="https://crates.io/crates/maker_web" class="support-link" target="_blank">
-                    <div class="support-icon">📦</div>
-                    <div class="support-text">
-                        <strong>Download from crates.io</strong>
-                        <span>Add maker_web to your project</span>
-                    </div>
-                </a>
-                
-                <a href="https://docs.rs/maker_web/latest/maker_web/" class="support-link" target="_blank">
-                    <div class="support-icon">📖</div>
-                    <div class="support-text">
-                        <strong>Read documentation</strong>
-                        <span>Complete API reference on docs.rs</span>
-                    </div>
-                </a>
-                
-                <a href="https://github.com/AmakeSashaDev/maker_web/blob/main/EXAMPLES.md" 
-                   class="support-link" target="_blank">
-                    <div class="support-icon">📚</div>
-                    <div class="support-text">
-                        <strong>Check examples</strong>
-                        <span>Learn with practical code examples</span>
-                    </div>
-                </a>
-            </div>
-        </div>
-        
-        <div class="footer">
+        <div class="footer-card">
             <div class="stars">
                 Made with <span class="heart">❤️</span> for the Rust community
-                <span style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-top: 0.3rem;">
-                    Live stats from crates.io & GitHub
-                </span>
+                <span class="footer-note">Live stats from crates.io & GitHub</span>
             </div>
             <div class="copyright">
                 © <span id="currentYear">2025</span> AmakeSashaDev. All rights reserved.
@@ -171,6 +260,8 @@
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/rust.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

@@ -103,16 +103,12 @@ function getThemeFromURL() {
 
 function setTheme(theme) {
     document.body.setAttribute('data-theme', theme);
-    console.log(`Theme set to: ${theme}`);
 }
 
 function updateURLWithTheme(theme) {
     const url = new URL(window.location);
-    
     url.searchParams.set('theme', theme);
-    
     window.history.pushState({}, '', url);
-    console.log(`URL updated: ${url}`);
 }
 
 function setupThemeToggle() {
@@ -123,11 +119,12 @@ function setupThemeToggle() {
         const newTheme = currentTheme === 'light' ? 'dark' : 'light';
         
         setTheme(newTheme);
-        
         updateURLWithTheme(newTheme);
         
-        themeToggle.classList.add('clicked');
-        setTimeout(() => themeToggle.classList.remove('clicked'), 300);
+        themeToggle.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            themeToggle.style.transform = '';
+        }, 150);
     });
 }
 
@@ -194,16 +191,61 @@ function setupShareModal() {
     });
 }
 
+function setupExamplesCopy() {
+    document.querySelectorAll('.api-example pre').forEach(pre => {
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'copy-example-btn';
+        copyBtn.innerHTML = '📋';
+        copyBtn.title = 'Копировать код';
+        
+        copyBtn.addEventListener('click', async () => {
+            const code = pre.querySelector('code').textContent;
+            try {
+                await navigator.clipboard.writeText(code);
+                copyBtn.textContent = '✅';
+                setTimeout(() => {
+                    copyBtn.innerHTML = '📋';
+                }, 2000);
+            } catch (err) {
+                console.error('Ошибка копирования:', err);
+            }
+        });
+        
+        pre.appendChild(copyBtn);
+    });
+    
+    const copyAllBtn = document.getElementById('copyAllExamples');
+    if (copyAllBtn) {
+        copyAllBtn.addEventListener('click', async () => {
+            const allExamples = Array.from(document.querySelectorAll('.api-example pre code'))
+                .map(code => code.textContent)
+                .join('\n\n// ========================================\n\n');
+            
+            try {
+                await navigator.clipboard.writeText(allExamples);
+                copyAllBtn.innerHTML = '✅ Все примеры скопированы!';
+                copyAllBtn.style.background = '#16a34a';
+                
+                setTimeout(() => {
+                    copyAllBtn.innerHTML = '📋 Скопировать все примеры';
+                    copyAllBtn.style.background = '#22c55e';
+                }, 3000);
+            } catch (err) {
+                console.error('Ошибка копирования:', err);
+            }
+        });
+    }
+}
+
 function init() {
     document.getElementById('currentYear').textContent = new Date().getFullYear();
     
     initTheme();
     setupThemeToggle();
-
     setupShareModal();
+    setupExamplesCopy();
     
     loadStats();
-    
     setInterval(loadStats, 2 * 60 * 1000);
     
     window.addEventListener('popstate', () => {
