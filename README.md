@@ -1,30 +1,51 @@
-# maker_web
+<div align="center">
+  <h1>maker_web</h1>
+  <h3>High-performance, zero-allocation HTTP server for microservices</h3>
+</div>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/AmakeSashaDev/maker_web/blob/main/LICENSE-MIT)
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](https://github.com/AmakeSashaDev/maker_web/blob/main/LICENSE-APACHE)
 [![Downloads](https://img.shields.io/crates/d/maker_web)](https://crates.io/crates/maker_web)
-[![Crates.io](https://img.shields.io/crates/v/maker_web)](https://crates.io/crates/maker_web)
-[![Documentation](https://img.shields.io/badge/docs-docs.rs-blue)](https://docs.rs/maker_web)
+[![Crates.io](https://img.shields.io/crates/v/maker_web?label=version)](https://crates.io/crates/maker_web)
+[![Documentation](https://img.shields.io/badge/docs-docs.rs-blue)](https://docs.rs/maker_web/latest/maker_web/)
+[![Build Status](https://github.com/AmakeSashaDev/maker_web/actions/workflows/ci.yml/badge.svg)](https://github.com/AmakeSashaDev/maker_web/actions)
 
-## Features
+# Key Features
 
-- **⚡ High Performance** - Zero-allocation design, pre-calculated buffers
-- **🔧 Fine-grained Control** - Precise memory, connection, and protocol configuration
-- **🔄 Multi-protocol** - HTTP/1.1, HTTP/1.0, and HTTP/0.9+ support
-- **🎯 Async Ready** - Built on Tokio for scalable I/O
-- **📊 Predictable Memory** - Pre-allocated memory per connection
+## Security & Protection
+- Built-in DoS/DDoS protection — active by default, zero performance cost
+- Fully configurable limits & timeouts for requests, responses, and connections
 
-## Quick Start
+## Zero-Allocation Performance  
+- Zero runtime allocations — predictable and consistent performance
+- Pre-allocated per-connection memory — linear and transparent scaling
 
-Add to `Cargo.toml`:
+## Protocol & Control
+- Full HTTP stack (1.1, 1.0, [0.9+](https://docs.rs/maker_web/latest/maker_web/limits/struct.Http09Limits.html)) with keep‑alive
+- Auto‑detection per request — no manual protocol selection needed с keep-alive
+- Fine-grained buffer control for each protocol
 
+## Production Ready
+- Graceful degradation — automatic 503 responses during overload
+- [Configurable error format](https://docs.rs/maker_web/latest/maker_web/limits/struct.ServerLimits.html#structfield.json_errors) — structured JSON (with codes/descriptions) or plain text
+- Resource protection — auto-close connections exceeding configured limits
+
+# Benchmarks
+
+Performance comparisons are available in the [benchmarks directory](https://github.com/AmakeSashaDev/maker_web/tree/main/benches).
+
+# Installation
+
+Add `maker_web` and [`tokio`](https://crates.io/crates/tokio) to your `Cargo.toml`:
+
+```bash
+cargo add maker_web tokio --features tokio/full
+```
+Or manually:
 ```toml
 [dependencies]
 maker_web = "0.1"
 tokio = { version = "1", features = ["full"] }
 ```
-
-## Basic example
+# Usage example
 ```rust
 use maker_web::{Handled, Handler, Request, Response, Server, StatusCode};
 use tokio::net::TcpListener;
