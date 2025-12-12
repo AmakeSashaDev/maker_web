@@ -8,7 +8,7 @@ use crate::{
 };
 use memchr::{memchr, memchr_iter};
 use std::{io, mem, time::Duration};
-use tokio::{io::AsyncReadExt, net::TcpStream, time::timeout};
+use tokio::{io::AsyncReadExt, net::TcpStream, time::sleep};
 
 /// High-performance HTTP request representation.
 ///
@@ -489,9 +489,18 @@ impl Parser {
         stream: &mut TcpStream,
         time: Duration,
     ) -> Result<usize, io::Error> {
-        self.len = timeout(time, stream.read(&mut self.buffer)).await??;
-
-        Ok(self.len)
+        tokio::select! {
+            biased;
+            
+            read_result = stream.read(&mut self.buffer) => {
+                let n = read_result?;
+                self.len = n;
+                Ok(n)
+            }
+            _ = sleep(time) => {
+                Err(io::Error::new(io::ErrorKind::TimedOut, "read timeout"))
+            },
+        }
     }
 
     // Search level

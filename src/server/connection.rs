@@ -79,7 +79,6 @@ impl<H: Handler<S>, S: ConnectionData> HttpConnection<H, S> {
             {
                 break;
             }
-
             self.response.version = self.parse()?;
 
             self.handler
@@ -108,7 +107,7 @@ pub(crate) mod writer {
     use tokio::{
         io::AsyncWriteExt,
         net::TcpStream,
-        time::{timeout, Duration},
+        time::{sleep, Duration},
     };
 
     pub(crate) static SOCKET_WRITE_TIMEOUT: AtomicU64 = AtomicU64::new(0);
@@ -132,8 +131,16 @@ pub(crate) mod writer {
         stream: &mut TcpStream,
         response: &[u8],
     ) -> Result<(), io::Error> {
-        let num = SOCKET_WRITE_TIMEOUT.load(Ordering::Relaxed);
-        timeout(Duration::from_micros(num), stream.write_all(response)).await?
+        let micros = SOCKET_WRITE_TIMEOUT.load(Ordering::Relaxed);
+
+        tokio::select! {
+            biased;
+            
+            result = stream.write_all(response) => result,
+            _ = sleep(Duration::from_micros(micros)) => {
+                Err(io::Error::new(io::ErrorKind::TimedOut, "write timeout"))
+            },
+        }
     }
 }
 
