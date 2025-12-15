@@ -420,43 +420,52 @@ code {
 }
 
 [data-theme="light"] [data-box-type="get-started"] .support-link:nth-child(1) .support-icon {
-    background: #f3e8ff; color: #7c3aed;
+    background: #e8f4fd; color: #0ea5e9;
 }
-[data-theme="light"] [data-box-type="get-started"] .support-link:nth-child(2) .support-icon {
-    background: #fef3c7; color: #d97706;
-}
-[data-theme="light"] [data-box-type="get-started"] .support-link:nth-child(3) .support-icon {
-    background: #f0f9ff; color: #0369a1;
+[data-theme="dark"] [data-box-type="get-started"] .support-link:nth-child(1) .support-icon {
+    background: #1e3a8a; color: #7dd3fc;
 }
 
-[data-theme="dark"] [data-box-type="get-started"] .support-link:nth-child(1) .support-icon {
-    background: #5c4738; color: #c4b5fd;
+[data-theme="light"] [data-box-type="get-started"] .support-link:nth-child(2) .support-icon {
+    background: #f0fdf4; color: #22c55e;
 }
 [data-theme="dark"] [data-box-type="get-started"] .support-link:nth-child(2) .support-icon {
-    background: #2c3e50; color: #fbbf24;
+    background: #14532d; color: #4ade80;
+}
+
+[data-theme="light"] [data-box-type="get-started"] .support-link:nth-child(3) .support-icon {
+    background: #fef7cd; color: #eab308;
 }
 [data-theme="dark"] [data-box-type="get-started"] .support-link:nth-child(3) .support-icon {
-    background: #5d4037; color: #7dd3fc;
+    background: #713f12; color: #fde047;
+}
+
+[data-theme="light"] [data-box-type="get-started"] .support-link:nth-child(4) .support-icon {
+    background: #fae8ff; color: #c026d3;
+}
+[data-theme="dark"] [data-box-type="get-started"] .support-link:nth-child(4) .support-icon {
+    background: #701a75; color: #f0abfc;
 }
 
 [data-theme="light"] [data-box-type="support"] .support-link:nth-child(1) .support-icon {
-    background: #fef3c7; color: #d97706;
+    background: #ffedd5; color: #ea580c;
 }
+[data-theme="dark"] [data-box-type="support"] .support-link:nth-child(1) .support-icon {
+    background: #7c2d12; color: #fdba74;
+}
+
 [data-theme="light"] [data-box-type="support"] .support-link:nth-child(2) .support-icon {
-    background: #dbeafe; color: #2563eb;
+    background: #e0e7ff; color: #4f46e5;
 }
+[data-theme="dark"] [data-box-type="support"] .support-link:nth-child(2) .support-icon {
+    background: #312e81; color: #a5b4fc;
+}
+
 [data-theme="light"] [data-box-type="support"] .support-link:nth-child(3) .support-icon {
     background: #fce7f3; color: #db2777;
 }
-
-[data-theme="dark"] [data-box-type="support"] .support-link:nth-child(1) .support-icon {
-    background: #5a3806; color: #fbbf24;
-}
-[data-theme="dark"] [data-box-type="support"] .support-link:nth-child(2) .support-icon {
-    background: #1e3a8a; color: #60a5fa;
-}
 [data-theme="dark"] [data-box-type="support"] .support-link:nth-child(3) .support-icon {
-    background: #831843; color: #f472b6;
+    background: #831843; color: #f9a8d4;
 }
 
 .footer-card {

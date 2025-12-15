@@ -4,6 +4,13 @@ This directory contains examples of using the maker_web library. Each example is
 
 ## List
 
+### ["Hello, world!"](hello_world.md)
+**File:** [`hello_world.rs`](hello_world.rs)
+
+A minimal HTTP server that returns "Hello, world!" for all requests.
+
+---
+
 ### [Multilingual Greeting](multilingual_greeting.md)
 **File:** [`multilingual_greeting.rs`](multilingual_greeting.rs)
 

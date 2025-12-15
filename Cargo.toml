@@ -29,13 +29,17 @@ debug = false
 debug-assertions = false
 overflow-checks = false
 
-[[example]] # Multilingual greeting API
-name = "multilingual_greeting"
-path = "examples/multilingual_greeting.rs"
+[[example]] # "Hello, world!" server
+name = "hello_world"
+path = "examples/hello_world.rs"
 
 [[example]] # Per-connection request counter
 name = "request_counter"  
 path = "examples/request_counter.rs"
+
+[[example]] # Multilingual greeting API
+name = "multilingual_greeting"
+path = "examples/multilingual_greeting.rs"
 
 [[example]] # Echo service that returns request data
 name = "echo"
