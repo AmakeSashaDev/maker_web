@@ -12,6 +12,7 @@ keywords = ["http", "server", "microservices", "performance", "async"]
 categories = ["web-programming::http-server", "asynchronous", "network-programming"]
 rust-version = "1.75"
 edition = "2021"
+exclude = ["/docs", "/examples", "/benches", "Cargo.lock", ".gitignore"]
 
 [dependencies]
 crossbeam = "0.8.4"
