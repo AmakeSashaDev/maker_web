@@ -3,7 +3,7 @@ use tokio::net::TcpListener;
 
 struct HelloWorld;
 
-impl Handler<()> for HelloWorld {
+impl Handler for HelloWorld {
     async fn handle(&self, _: &mut (), _: &Request, resp: &mut Response) -> Handled {
         resp.status(StatusCode::Ok)
             .header("Content-Type", "text/plain")

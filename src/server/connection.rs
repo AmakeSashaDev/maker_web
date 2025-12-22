@@ -5,11 +5,12 @@ use crate::{
         response::Response,
         types::Version,
     },
-    limits::{ConnLimits, Http09Limits, ReqLimits, RespLimits},
-    server::server_impl::{AllTypesLimits, Handler},
+    limits::{ConnLimits, Http09Limits, ReqLimits, RespLimits, ServerLimits},
+    server::server_impl::{AllLimits, Handler},
+    Handled,
 };
-use std::{io, sync::Arc, time::Instant};
-use tokio::net::TcpStream;
+use std::{io, net::SocketAddr, sync::Arc, time::Instant};
+use tokio::{io::AsyncWriteExt, net::TcpStream, time::sleep};
 
 pub(crate) struct HttpConnection<H: Handler<S>, S: ConnectionData> {
     handler: Arc<H>,
@@ -20,15 +21,16 @@ pub(crate) struct HttpConnection<H: Handler<S>, S: ConnectionData> {
     pub(crate) request: Request,
     pub(crate) response: Response,
 
-    conn_limits: ConnLimits,
+    pub(crate) server_limits: ServerLimits,
+    pub(crate) conn_limits: ConnLimits,
     pub(crate) http_09_limits: Option<Http09Limits>,
     pub(crate) req_limits: ReqLimits,
-    resp_limits: RespLimits,
+    pub(crate) resp_limits: RespLimits,
 }
 
 impl<H: Handler<S>, S: ConnectionData> HttpConnection<H, S> {
     #[inline]
-    pub(crate) fn new(handler: Arc<H>, limits: AllTypesLimits) -> Self {
+    pub(crate) fn new(handler: Arc<H>, limits: AllLimits) -> Self {
         Self {
             handler,
             connection_data: S::new(),
@@ -38,6 +40,7 @@ impl<H: Handler<S>, S: ConnectionData> HttpConnection<H, S> {
             request: Request::new(&limits.3),
             response: Response::new(&limits.4),
 
+            server_limits: limits.0,
             conn_limits: limits.1,
             http_09_limits: limits.2,
             req_limits: limits.3,
@@ -59,11 +62,20 @@ impl<H: Handler<S>, S: ConnectionData> HttpConnection<H, S> {
         match self.impl_run(stream).await {
             Ok(()) => Ok(()),
             Err(ErrorKind::Io(e)) => Err(e.0),
-            Err(err) => writer::send_error(stream, self.request.version(), err).await,
+            Err(error) => {
+                self.conn_limits
+                    .send_error(
+                        stream,
+                        error,
+                        self.request.version(),
+                        self.server_limits.json_errors,
+                    )
+                    .await
+            }
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub(crate) async fn impl_run(&mut self, stream: &mut TcpStream) -> Result<(), ErrorKind> {
         self.connection.reset();
         self.connection_data.reset();
@@ -85,7 +97,9 @@ impl<H: Handler<S>, S: ConnectionData> HttpConnection<H, S> {
                 .handle(&mut self.connection_data, &self.request, &mut self.response)
                 .await;
 
-            writer::write_bytes(stream, self.response.buffer()).await?;
+            self.conn_limits
+                .write_bytes(stream, self.response.buffer())
+                .await?;
 
             if !self.response.keep_alive {
                 break;
@@ -98,46 +112,30 @@ impl<H: Handler<S>, S: ConnectionData> HttpConnection<H, S> {
     }
 }
 
-pub(crate) mod writer {
-    use crate::{errors::ErrorKind, http::types::Version};
-    use std::{
-        io,
-        sync::atomic::{AtomicBool, AtomicU64, Ordering},
-    };
-    use tokio::{
-        io::AsyncWriteExt,
-        net::TcpStream,
-        time::{sleep, Duration},
-    };
-
-    pub(crate) static SOCKET_WRITE_TIMEOUT: AtomicU64 = AtomicU64::new(0);
-    pub(crate) static JSON_ERRORS: AtomicBool = AtomicBool::new(true);
-
-    #[inline(always)]
+impl ConnLimits {
+    #[inline]
     pub(crate) async fn send_error(
+        &self,
         stream: &mut TcpStream,
-        version: Version,
         error: ErrorKind,
+        version: Version,
+        json_errors: bool,
     ) -> Result<(), io::Error> {
-        write_bytes(
-            stream,
-            error.as_http(version, JSON_ERRORS.load(Ordering::Relaxed)),
-        )
-        .await
+        self.write_bytes(stream, error.as_http(version, json_errors))
+            .await
     }
 
-    #[inline(always)]
+    #[inline]
     pub(crate) async fn write_bytes(
+        &self,
         stream: &mut TcpStream,
         response: &[u8],
     ) -> Result<(), io::Error> {
-        let micros = SOCKET_WRITE_TIMEOUT.load(Ordering::Relaxed);
-
         tokio::select! {
             biased;
-            
+
             result = stream.write_all(response) => result,
-            _ = sleep(Duration::from_micros(micros)) => {
+            _ = sleep(self.socket_write_timeout) => {
                 Err(io::Error::new(io::ErrorKind::TimedOut, "write timeout"))
             },
         }
@@ -153,7 +151,7 @@ macro_rules! is_expired {
 }
 
 impl<H: Handler<S>, S: ConnectionData> HttpConnection<H, S> {
-    #[inline(always)]
+    #[inline]
     fn is_expired(&self) -> Result<bool, ErrorKind> {
         match (self.response.version, &self.http_09_limits) {
             (Version::Http09, Some(limits)) => is_expired!(self, limits),
@@ -170,7 +168,7 @@ pub(crate) struct Connection {
 }
 
 impl Connection {
-    #[inline(always)]
+    #[inline]
     pub(crate) fn new() -> Self {
         Self {
             created: Instant::now(),
@@ -178,7 +176,7 @@ impl Connection {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub(crate) fn reset(&mut self) {
         self.created = Instant::now();
         self.request_count = 0;
@@ -189,13 +187,12 @@ impl Connection {
 
 /// Managing user session data stored between requests within a single HTTP connection.
 ///
-/// This trait allows you to store an arbitrary state (for example, authentication,
-/// multistep form status, cache, etc.), which will be available in all requests
-/// during the lifetime of the HTTP connection (keep-alive). Data is automatically
-/// reset when the connection is terminated.
+/// This trait allows you to store arbitrary state (e.g., authentication data,
+/// multistep form status, cache, etc.). The state is available across all requests
+/// within a single HTTP keep-alive connection.
 ///
 /// # Examples
-/// ```
+/// ```no_run
 /// use maker_web::ConnectionData;
 /// use std::collections::HashMap;
 ///
@@ -221,6 +218,10 @@ impl Connection {
 ///     }
 /// }
 /// ```
+///
+/// Check out a [real-world example
+/// ](https://github.com/AmakeSashaDev/maker_web/blob/main/examples/request_counter.rs)
+/// (well, almost)
 pub trait ConnectionData: Sync + Send + 'static {
     /// Creates a new instance of user data.
     ///
@@ -243,6 +244,64 @@ impl ConnectionData for () {
     fn reset(&mut self) {}
 }
 
+/// A trait for filtering TCP connections before HTTP processing.
+///
+/// # Examples
+/// ```no_run
+/// use std::net::SocketAddr;
+/// use maker_web::{Server, ConnectionFilter, Response, Handled, StatusCode};
+///
+/// struct MyConnFilter {
+///     blacklist: Vec<SocketAddr>
+/// }
+///
+/// impl ConnectionFilter for MyConnFilter {
+///     fn filter(
+///         &self, client_addr: SocketAddr, _: SocketAddr, err_resp: &mut Response
+///     ) -> Result<(), Handled> {
+///         if self.blacklist.contains(&client_addr) {
+///             Err(err_resp
+///                 .status(StatusCode::Forbidden)
+///                 .body("Your IP is permanently banned"))
+///         } else {
+///             Ok(())
+///         }
+///     }
+/// }
+/// ```
+pub trait ConnectionFilter: Sync + Send + 'static {
+    /// Determines whether to process an incoming TCP connection.
+    ///
+    /// The diagram of the location and operation of this function:
+    /// ```text
+    ///                         [ QUEUE TCP_STREAM ]
+    ///                                  ||
+    /// /--------------------------------||--------------------------------------------\
+    /// | Tokio Task                     || TCP_STREAM                                 |
+    /// |                                \/                                            |
+    /// |   [-----------]   Ok(())   [--------]   Err(Handled)   [-----------------]   |
+    /// |   [  Handler  ] <========= [ Filter ] ===============> [ Send            ]   |
+    /// |   [-----------]            [--------]                  [ `error_response`]   |
+    /// |                                                        [-----------------]   |
+    /// |                                                                              |
+    /// \------------------------------------------------------------------------------/
+    /// ```
+    fn filter(
+        &self,
+        client_addr: SocketAddr,
+        server_addr: SocketAddr,
+        error_response: &mut Response,
+    ) -> Result<(), Handled>;
+}
+
+impl ConnectionFilter for () {
+    fn filter(&self, _: SocketAddr, _: SocketAddr, _: &mut Response) -> Result<(), Handled> {
+        Ok(())
+    }
+}
+
+//
+
 #[cfg(test)]
 mod def_handler {
     use super::*;
@@ -257,6 +316,7 @@ mod def_handler {
     }
 
     impl HttpConnection<DefHandler, ()> {
+        #[inline]
         pub(crate) fn from_req<V: AsRef<[u8]>>(value: V) -> Self {
             let req_limits = ReqLimits::default().precalculate();
             let resp_limits = RespLimits::default();
@@ -270,6 +330,7 @@ mod def_handler {
                 request: Request::new(&req_limits),
                 response: Response::new(&resp_limits),
 
+                server_limits: ServerLimits::default(),
                 conn_limits: ConnLimits::default(),
                 http_09_limits: None,
                 req_limits,

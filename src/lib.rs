@@ -10,25 +10,58 @@
 //! - **HTTP/1.0**: Basic protocol support for legacy clients and simple requests
 //! - **HTTP/0.9+**: [High-performance variant with keep-alive and query support](limits::Http09Limits)
 //!
-//! # Performance Characteristics
+//! # Features
 //!
-//! - **Zero-allocation pipeline** - no heap allocations during request/response processing
-//! - **Async/await ready** - built on Tokio for scalable I/O and high concurrency  
-//! - **Pre-calculated buffers** - fixed memory allocation per connection based on configured limits
-//! - **Connection reuse** - efficient keep-alive and connection pooling
-//! - **Configurable timeouts** - precise control over connection lifetimes and I/O operations
-//! - **Multi-protocol optimization** - HTTP/1.1, HTTP/1.0, and HTTP/0.9+ for various performance needs
+//! ## 🔒 Security & Protection
+//! - **Built-in DoS/DDoS protection** - enabled by default, with no performance penalty.
+//! - **Fully configurable limits and timeouts** for requests, responses, and connections.
+//! - **Custom connection filtering** - implement the [`ConnectionFilter`] trait to
+//!   reject unwanted connections at the TCP level.
 //!
-//! # Examples
+//! ## 🚀 Performance & Memory
+//! - **Zero-allocation** - no memory allocations after server startup.
+//! - **Pre-allocated memory for each connection** - linear and transparent scaling.
 //!
-//! Quick start:
+//! ## 🌐 Protocol & Management
+//! - **Full HTTP stack** - `HTTP/1.1`, `HTTP/1.0`, [`HTTP/0.9+`
+//!   ](https://docs.rs/maker_web/latest/maker_web/limits/struct.Http09Limits.html)
+//!   with keep-alive.
+//! - **Automatic protocol detection for each request** - keep-alive eliminates
+//!   the need for manual protocol selection.
+//! - **Storing data between requests** - ability to store data between requests in a
+//!   single connection using the [`ConnectionData`] trait.
+//!
+//! ## 🏭 Production Ready
+//! - **Graceful performance degradation** - automatic 503 responses when overloaded.
+//! - [**Custom error format**
+//!   ](https://docs.rs/maker_web/latest/maker_web/limits/struct.ServerLimits.html#structfield.json_errors) -
+//!   structured JSON (with codes/descriptions) or a plain HTTP response.
+//! - **Resource protection** - automatic closure of connections exceeding set limits.
+//!
+//! # Quick Start
+//!
+//! ## 1. Installation
+//!
+//! Add `maker_web` and [`tokio`](https://crates.io/crates/tokio) to your `Cargo.toml`:
+//!
+//! ```bash
+//! cargo add maker_web tokio --features tokio/full
+//! ```
+//! Or manually:
+//! ```toml
+//! [dependencies]
+//! maker_web = "0.1"
+//! tokio = { version = "1", features = ["full"] }
+//! ```
+//!
+//! ## 2. Usage example
 //! ```no_run
 //! use maker_web::{Server, Handler, Request, Response, Handled, StatusCode};
 //! use tokio::net::TcpListener;
 //!
 //! struct MyHandler;
 //!
-//! impl Handler<()> for MyHandler {
+//! impl Handler for MyHandler {
 //!     async fn handle(&self, _: &mut (), _: &Request, resp: &mut Response) -> Handled {
 //!         resp.status(StatusCode::Ok).body("Hello World!")
 //!     }
@@ -44,71 +77,11 @@
 //!         .await;
 //! }
 //! ```
-//! Something in between :) :
-//! ```no_run
-//! use maker_web::{Handled, Handler, Request, Response, Server, StatusCode};
-//! use tokio::net::TcpListener;
 //!
-//! struct MyHandler;
-//!
-//! impl Handler<()> for MyHandler {
-//!     async fn handle(&self, _: &mut (), req: &Request, resp: &mut Response) -> Handled {
-//!         match req.url().path_segments() {
-//!             [b"api", user, b"name"] => {
-//!                 resp.status(StatusCode::Ok).body(user)
-//!             }
-//!             [b"api", user, b"name", b"len"] => {
-//!                 resp.status(StatusCode::Ok).body(user.len())
-//!             }
-//!             [b"api", b"echo", text] => {
-//!                 resp.status(StatusCode::Ok).body(text)
-//!             }
-//!             _ => resp.status(StatusCode::NotFound).body("qwe"),
-//!         }
-//!     }
-//! }
-//!
-//! #[tokio::main]
-//! async fn main() {
-//!     Server::builder()
-//!         .listener(TcpListener::bind("127.0.0.1:8080").await.unwrap())
-//!         .handler(MyHandler)
-//!         .build()
-//!         .launch()
-//!         .await;
-//! }
-//! ```
-//! Advanced configuration:
-//! ```no_run
-//! # maker_web::impt_default_handler!{MyHandler}
-//! use maker_web::{Server, limits::{ConnLimits, ReqLimits, ServerLimits}};
-//! use tokio::net::TcpListener;
-//! use std::time::Duration;
-//!
-//! #[tokio::main]
-//! async fn main() {
-//!     Server::builder()
-//!         .listener(TcpListener::bind("127.0.0.1:8080").await.unwrap())
-//!         .handler(MyHandler)
-//!         .server_limits(ServerLimits {
-//!             max_connections: 5000, // Higher concurrency
-//!             ..ServerLimits::default()
-//!         })
-//!         .connection_limits(ConnLimits {
-//!             socket_read_timeout: Duration::from_secs(5),
-//!             max_requests_per_connection: 10_000,
-//!             ..ConnLimits::default()
-//!         })
-//!         .request_limits(ReqLimits {
-//!             header_count: 18,      // More headers for complex APIs
-//!             body_size: 16 * 1024,  // 16KB for larger payloads
-//!             ..ReqLimits::default()
-//!         })
-//!         .build()
-//!         .launch()
-//!         .await;
-//! }
-//! ```
+//! For more examples including connection filtering and advanced configuration,
+//! see the crate documentation and
+//! [`examples/`](https://github.com/AmakeSashaDev/maker_web/tree/main/examples)
+//! directory.
 //!
 //! # Use Cases
 //!
@@ -117,7 +90,10 @@
 //! - **Internal APIs** - security-conscious defaults
 //! - **Performance-critical applications** - zero-allocation design
 //! - **Legacy system integration** - HTTP/1.0 compatibility
-
+//!
+//! # 🌐 Beyond the Documentation
+//! For live statistics, deeper insights, and ongoing project thoughts,
+//! visit the [project website](https://amakesashadev.github.io/maker_web/).
 pub(crate) mod http {
     pub mod query;
     pub(crate) mod request;
@@ -142,7 +118,7 @@ pub use crate::{
         types::{Method, StatusCode, Url, Version},
     },
     server::{
-        connection::ConnectionData,
+        connection::{ConnectionData, ConnectionFilter},
         server_impl::{Handler, Server, ServerBuilder},
     },
 };
@@ -162,6 +138,7 @@ macro_rules! impt_default_handler {
         use maker_web::{Handled, Handler, Request, Response, StatusCode};
         struct $name;
 
+        // `<()>` to check functionality
         impl Handler<()> for $name {
             async fn handle(&self, _: &mut (), _: &Request, resp: &mut Response) -> Handled {
                 resp.status(StatusCode::Ok).body("Hello world!")
@@ -170,22 +147,23 @@ macro_rules! impt_default_handler {
     };
 }
 
+#[doc(hidden)]
 #[cfg(test)]
-pub mod tools {
+pub(crate) mod tools {
     use std::str::from_utf8;
 
     #[inline]
-    pub fn str(value: Option<&[u8]>) -> Option<&str> {
+    pub(crate) fn str(value: Option<&[u8]>) -> Option<&str> {
         Some(from_utf8(value?).unwrap())
     }
 
     #[inline]
-    pub fn str_op(value: &[u8]) -> &str {
+    pub(crate) fn str_op(value: &[u8]) -> &str {
         from_utf8(value).unwrap()
     }
 
     #[inline]
-    pub fn str_2<'a>(value: (&'a [u8], &'a [u8])) -> (&'a str, &'a str) {
+    pub(crate) fn str_2<'a>(value: (&'a [u8], &'a [u8])) -> (&'a str, &'a str) {
         (from_utf8(value.0).unwrap(), from_utf8(value.1).unwrap())
     }
 }

@@ -132,6 +132,40 @@ impl Response {
         self.keep_alive = false;
         self
     }
+
+    /// Closes the connection without sending a response.
+    ///
+    /// # Examples
+    /// ```
+    /// # maker_web::run_test(|req, resp| {
+    /// use maker_web::{StatusCode, Version};
+    ///
+    /// if req.url().target() == b"/connection/close" {
+    ///     resp.close_without_response()
+    /// } else {
+    ///     resp.status(StatusCode::Ok).body("I'm not closing it :)")
+    /// }
+    /// # });
+    /// ```
+    ///
+    /// # Panics
+    /// Error messages:
+    /// - `The response must be empty and incomplete`
+    ///
+    /// Panics in `debug` mode when:
+    /// - Called after any method
+    #[inline]
+    #[track_caller]
+    pub fn close_without_response(&mut self) -> Handled {
+        debug_assert!(
+            self.state == ResponseState::Clean,
+            "The response must be empty and incomplete",
+        );
+
+        self.keep_alive = false;
+        self.state = ResponseState::Complete;
+        Handled(())
+    }
 }
 
 /// Methods for working with `HTTP/1.X` (HTTP/1.1 or HTTP/1.1)
@@ -981,12 +1015,12 @@ mod close_tests {
             let mut resp = Response::new(&RespLimits::default());
             resp.version = version;
 
-            assert_eq!(resp.keep_alive, true);
+            assert!(resp.keep_alive);
             if is_close {
                 resp.close();
-                assert_eq!(resp.keep_alive, false);
+                assert!(!resp.keep_alive);
                 resp.close();
-                assert_eq!(resp.keep_alive, false);
+                assert!(!resp.keep_alive);
             }
 
             resp.status(StatusCode::Ok).body("");
@@ -1006,6 +1040,35 @@ mod close_tests {
         let mut resp = Response::new(&RespLimits::default());
         resp.status(StatusCode::Ok).body("");
         resp.close();
+    }
+}
+
+#[cfg(test)]
+mod close_without_response_tests {
+    use super::*;
+
+    #[test]
+    fn basic() {
+        let mut resp = Response::new(&RespLimits::default());
+
+        assert!(resp.keep_alive);
+        resp.close_without_response();
+        assert!(!resp.keep_alive);
+    }
+
+    #[test]
+    #[should_panic(expected = "The response must be empty and incomplete")]
+    fn after_any_method() {
+        let mut resp = Response::new(&RespLimits::default());
+        resp.status(StatusCode::Ok).close_without_response();
+    }
+
+    #[test]
+    #[should_panic(expected = "The response must be empty and incomplete")]
+    fn double_call() {
+        let mut resp = Response::new(&RespLimits::default());
+        resp.close_without_response();
+        resp.close_without_response();
     }
 }
 
@@ -1204,7 +1267,9 @@ mod body_tests {
 
             let mut vector = Vec::new();
             let mut result_data = BodyWriter(&mut vector);
-            $data(&mut result_data);
+
+            let func = $data;
+            func(&mut result_data);
             vector
         }};
     }
@@ -1276,9 +1341,9 @@ mod integration_tests {
         assert_eq!(str_op(&resp.buffer), result[1]);
         assert_eq!(resp.state, ResponseState::Headers);
 
-        assert_eq!(resp.keep_alive, true);
+        assert!(resp.keep_alive);
         resp.close();
-        assert_eq!(resp.keep_alive, false);
+        assert!(!resp.keep_alive);
         assert_eq!(str_op(&resp.buffer), result[1]);
         assert_eq!(resp.state, ResponseState::Headers);
 
@@ -1327,9 +1392,9 @@ mod integration_tests {
         assert_eq!(str_op(&resp.buffer), result[0]);
         assert_eq!(resp.state, ResponseState::Headers);
 
-        assert_eq!(resp.keep_alive, true);
+        assert!(resp.keep_alive);
         resp.close();
-        assert_eq!(resp.keep_alive, false);
+        assert!(!resp.keep_alive);
         assert_eq!(str_op(&resp.buffer), result[0]);
         assert_eq!(resp.state, ResponseState::Headers);
 

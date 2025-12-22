@@ -3,7 +3,7 @@ use tokio::net::TcpListener;
 
 struct MyHandler;
 
-impl Handler<()> for MyHandler {
+impl Handler for MyHandler {
     async fn handle(&self, _: &mut (), req: &Request, resp: &mut Response) -> Handled {
         let text = match req.url().path_segments() {
             [b"api", b"en"] => r#"{"lang": "en", "text": "Hello, world!"}"#,

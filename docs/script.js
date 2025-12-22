@@ -1,7 +1,7 @@
 const fallbackData = {
-    downloads: 1250,
-    stars: 85,
-    version: '0.3.1'
+    downloads: 0,
+    stars: 0,
+    version: '0.1.0'
 };
 
 function formatNumber(num) {

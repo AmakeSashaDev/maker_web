@@ -4,7 +4,7 @@ use tokio::net::TcpListener;
 
 struct MyHandler;
 
-impl Handler<()> for MyHandler {
+impl Handler for MyHandler {
     async fn handle(&self, _: &mut (), req: &Request, resp: &mut Response) -> Handled {
         let user_agent = if let Some(value) = req.header(b"user-agent") {
             format!(r#", "user_agent": {:?}"#, from_utf8(value).unwrap_or(""))

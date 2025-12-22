@@ -5,14 +5,15 @@ use crate::{
         response::{Handled, Response},
     },
     limits::{ConnLimits, Http09Limits, ReqLimits, RespLimits, ServerLimits, WaitStrategy},
-    server::connection::{writer, ConnectionData, HttpConnection},
-    Version,
+    server::connection::{ConnectionData, HttpConnection},
+    ConnectionFilter, Version,
 };
-use crossbeam::queue::{ArrayQueue, SegQueue};
+use crossbeam::queue::SegQueue;
 use std::{
     future::Future,
     marker::{PhantomData, Send, Sync},
-    sync::{atomic::Ordering, Arc},
+    net::SocketAddr,
+    sync::Arc,
 };
 use tokio::{
     net::{TcpListener, TcpStream},
@@ -23,8 +24,8 @@ use tokio::{
 /// A trait for handling HTTP requests and generating responses.
 ///
 /// You can use:
-/// - `&self` to store shared data (e.g. database, router)
-/// - `&mut S` to store connection data (e.g. authentication tokens, user settings)
+/// - `&self` for shared immutable data (e.g. database connection pool, router configuration)
+/// - `&mut S` for connection-specific mutable state (e.g. authentication tokens, session data)
 ///
 /// # Examples
 ///
@@ -34,7 +35,7 @@ use tokio::{
 ///
 /// struct MyHandler;
 ///
-/// impl Handler<()> for MyHandler {
+/// impl Handler for MyHandler {
 ///     async fn handle(&self, _: &mut (), req: &Request, resp: &mut Response) -> Handled {
 ///         // Simple echo handler
 ///         if req.url().target() == b"/echo" {
@@ -56,7 +57,7 @@ use tokio::{
 ///         data.request_count += 1;
 ///
 ///         resp.status(StatusCode::Ok)
-///             .body(format!("Request count: {}", data.request_count))
+///             .body(format!("Request #{}", data.request_count))
 ///     }
 /// }
 ///
@@ -74,7 +75,7 @@ use tokio::{
 ///     }
 /// }
 /// ```
-pub trait Handler<S>
+pub trait Handler<S = ()>
 where
     Self: Sync + Send + 'static,
     S: ConnectionData,
@@ -99,8 +100,8 @@ where
     fn handle(
         &self,
         connection_data: &mut S,
-        req: &Request,
-        resp: &mut Response,
+        request: &Request,
+        response: &mut Response,
     ) -> impl Future<Output = Handled> + Send;
 }
 
@@ -117,7 +118,7 @@ where
 ///
 /// struct MyHandler;
 ///
-/// impl Handler<()> for MyHandler {
+/// impl Handler for MyHandler {
 ///     async fn handle(&self, _: &mut (), _: &Request, resp: &mut Response) -> Handled {
 ///         resp.status(StatusCode::Ok).body("Hello world!")
 ///     }
@@ -133,35 +134,14 @@ where
 ///         .await
 /// }
 /// ```
-pub struct Server<H: Handler<S>, S: ConnectionData> {
+pub struct Server {
     listener: TcpListener,
-    _marker: PhantomData<S>,
-
-    worker_pool: Arc<ArrayQueue<HttpConnection<H, S>>>,
-    incoming_streams: Arc<SegQueue<TcpStream>>,
-
+    stream_queue: TcpQueue,
+    error_queue: TcpQueue,
     server_limits: ServerLimits,
 }
 
-macro_rules! impl_get_value_queue {
-    ($name:ident, $type:ident) => {
-        #[inline]
-        async fn $name<V>(pool: &Arc<$type<V>>, limits: &ServerLimits) -> V {
-            loop {
-                if let Some(value) = pool.pop() {
-                    return value;
-                }
-
-                match &limits.wait_strategy {
-                    WaitStrategy::Yield => yield_now().await,
-                    WaitStrategy::Sleep(time) => tokio_sleep(*time).await,
-                }
-            }
-        }
-    };
-}
-
-impl<H: Handler<S>, S: ConnectionData> Server<H, S> {
+impl Server {
     /// Creates a new builder for configuring the server instance.
     ///
     /// # Examples
@@ -179,11 +159,16 @@ impl<H: Handler<S>, S: ConnectionData> Server<H, S> {
     ///     .build();
     /// # }
     /// ```
-    #[inline(always)]
-    pub fn builder() -> ServerBuilder<H, S> {
+    #[inline]
+    pub fn builder<H, S>() -> ServerBuilder<H, S, ()>
+    where
+        H: Handler<S>,
+        S: ConnectionData,
+    {
         ServerBuilder {
             listener: None,
             handler: None,
+            connection_filter: Arc::new(()),
             _marker: PhantomData,
 
             server_limits: None,
@@ -215,53 +200,31 @@ impl<H: Handler<S>, S: ConnectionData> Server<H, S> {
     /// ```
     #[inline]
     pub async fn launch(self) {
-        let streams_rx = self.incoming_streams.clone();
-        let worker_pool_0 = self.worker_pool.clone();
-        let server_limits_0 = self.server_limits.clone();
-
-        tokio::spawn(async move {
-            let streams_tx = self.incoming_streams.clone();
-
-            loop {
-                let Ok((stream, _)) = self.listener.accept().await else {
-                    continue;
-                };
-
-                Self::push_incoming_streams(stream, &streams_tx, &server_limits_0);
-            }
-        });
-
         loop {
-            let mut worker = Self::get_value_array(&worker_pool_0, &self.server_limits).await;
-            let mut stream = Self::get_value_seq(&streams_rx, &self.server_limits).await;
+            let Ok(value) = self.listener.accept().await else {
+                continue;
+            };
 
-            let worker_pool = self.worker_pool.clone();
-            tokio::spawn(async move {
-                let _ = worker.run(&mut stream).await;
-                let _ = worker_pool.push(worker);
-            });
+            match self.stream_queue.len() < self.server_limits.max_pending_connections {
+                true => self.stream_queue.push(value),
+                false => self.error_queue.push(value),
+            }
         }
     }
 
     #[inline]
-    fn push_incoming_streams(
-        mut stream: TcpStream,
-        streams_tx: &Arc<SegQueue<TcpStream>>,
-        server_limits: &ServerLimits,
-    ) {
-        if streams_tx.len() < server_limits.max_pending_connections {
-            streams_tx.push(stream);
-        } else {
-            tokio::spawn(async move {
-                let _ =
-                    writer::send_error(&mut stream, Version::Http11, ErrorKind::ServiceUnavailable)
-                        .await;
-            });
+    async fn get_stream(queue: &TcpQueue, wait: &WaitStrategy) -> (TcpStream, SocketAddr) {
+        loop {
+            if let Some(value) = queue.pop() {
+                return value;
+            }
+
+            match wait {
+                WaitStrategy::Yield => yield_now().await,
+                WaitStrategy::Sleep(time) => tokio_sleep(*time).await,
+            }
         }
     }
-
-    impl_get_value_queue! { get_value_array, ArrayQueue }
-    impl_get_value_queue! { get_value_seq, SegQueue }
 }
 
 //
@@ -273,9 +236,15 @@ impl<H: Handler<S>, S: ConnectionData> Server<H, S> {
 /// - `HTTP/1.X` (HTTP/1.1 or HTTP/1.1): Always enabled
 /// - [`HTTP/0.9+`](crate::limits::Http09Limits): Optional,
 ///   enabled by setting [`http_09_limits`](Self::http_09_limits)
-pub struct ServerBuilder<H: Handler<S>, S: ConnectionData> {
+pub struct ServerBuilder<H, S = (), F = ()>
+where
+    H: Handler<S>,
+    S: ConnectionData,
+    F: ConnectionFilter,
+{
     listener: Option<TcpListener>,
-    handler: Option<H>,
+    handler: Option<Arc<H>>,
+    connection_filter: Arc<F>,
     _marker: PhantomData<S>,
 
     server_limits: Option<ServerLimits>,
@@ -285,7 +254,12 @@ pub struct ServerBuilder<H: Handler<S>, S: ConnectionData> {
     http_09_limits: Option<Http09Limits>,
 }
 
-impl<H: Handler<S>, S: ConnectionData> ServerBuilder<H, S> {
+impl<H, S, F> ServerBuilder<H, S, F>
+where
+    H: Handler<S>,
+    S: ConnectionData,
+    F: ConnectionFilter,
+{
     /// Sets the TCP listener that the server will use to accept connections.
     ///
     /// **This is a required component.**
@@ -311,29 +285,106 @@ impl<H: Handler<S>, S: ConnectionData> ServerBuilder<H, S> {
         self
     }
 
-    /// Sets the request handler will process incoming requests.
+    /// Sets the request handler that will process incoming requests.
     ///
     /// **This is a required component.**
     ///
     /// # Examples
     ///
     /// ```no_run
-    /// # maker_web::impt_default_handler!{ MyStruct }
+    /// use maker_web::{Server, Handler, Request, Response, Handled, StatusCode};
+    /// use tokio::net::TcpListener;
+    ///
+    /// struct MyStruct;
+    ///
+    /// impl Handler for MyStruct {
+    ///     async fn handle(&self, _: &mut (), _: &Request, resp: &mut Response) -> Handled {
+    ///         resp.status(StatusCode::Ok).body("Hello World!")
+    ///     }
+    /// }
+    ///
     /// # #[tokio::main]
     /// # async fn main() {
-    /// use tokio::net::TcpListener;
-    /// use maker_web::Server;
-    ///
     /// let server = Server::builder()
     ///     .listener(TcpListener::bind("127.0.0.1:8080").await.unwrap())
-    ///     .handler(MyStruct) // structure with Handler implementation
+    ///     .handler(MyStruct)
     ///     .build();
     /// # }
     /// ```
     #[inline(always)]
     pub fn handler(mut self, handler: H) -> Self {
-        self.handler = Some(handler);
+        self.handler = Some(Arc::new(handler));
         self
+    }
+
+    /// Installs a connection filter to check incoming TCP connections
+    /// before using it.
+    ///
+    /// Allows early rejection of unwanted IP addresses (before the
+    /// first read). Can be used for DDoS protection, geobanning, etc.
+    ///
+    /// For more information, see [ConnectionFilter](crate::ConnectionFilter)
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # maker_web::impt_default_handler!{ MyStruct }
+    /// use tokio::net::TcpListener;
+    /// use std::net::SocketAddr;
+    /// use maker_web::{ConnectionFilter, Server};
+    ///
+    /// struct MyConnFilter {
+    ///     blacklist: Vec<SocketAddr>
+    /// }
+    ///
+    /// impl ConnectionFilter for MyConnFilter {
+    ///     fn filter(
+    ///         &self, client_addr: SocketAddr, _: SocketAddr, err_resp: &mut Response
+    ///     ) -> Result<(), Handled> {
+    ///         if self.blacklist.contains(&client_addr) {
+    ///             Err(err_resp
+    ///                 .status(StatusCode::Forbidden)
+    ///                 .body(b"Your IP is permanently banned"))
+    ///         } else {
+    ///             Ok(())
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let filter = MyConnFilter {
+    ///     blacklist: vec![
+    ///         "192.0.2.1".parse().unwrap(),
+    ///         "198.51.100.1".parse().unwrap(),
+    ///         "203.0.113.1".parse().unwrap(),
+    ///         "10.0.0.1".parse().unwrap(),
+    ///     ]
+    /// };
+    ///
+    /// let server = Server::builder()
+    ///     .listener(TcpListener::bind("127.0.0.1:8080").await.unwrap())
+    ///     .handler(MyStruct) // structure with Handler implementation
+    ///     .conn_filter(filter)
+    ///     .build();
+    /// # }
+    /// ```
+    #[inline(always)]
+    pub fn conn_filter<NewF>(self, filter: NewF) -> ServerBuilder<H, S, NewF>
+    where
+        NewF: ConnectionFilter,
+    {
+        ServerBuilder {
+            listener: self.listener,
+            handler: self.handler,
+            connection_filter: Arc::new(filter),
+            _marker: self._marker,
+            server_limits: self.server_limits,
+            request_limits: self.request_limits,
+            response_limits: self.response_limits,
+            connection_limits: self.connection_limits,
+            http_09_limits: self.http_09_limits,
+        }
     }
 
     /// Configures request parsing and processing limits.
@@ -406,7 +457,7 @@ impl<H: Handler<S>, S: ConnectionData> ServerBuilder<H, S> {
     ///
     /// # Examples
     ///
-    /// Switching on [`Http09Limits`]:
+    /// Enabling [`Http09Limits`]:
     /// ```no_run
     /// # maker_web::impt_default_handler!{ MyStruct }
     /// # #[tokio::main]
@@ -534,56 +585,110 @@ impl<H: Handler<S>, S: ConnectionData> ServerBuilder<H, S> {
     /// // Yes, 3 identical examples, for you, in case you suddenly get lost :)
     /// #
     /// # // No, really. Documentation can be difficult for beginners.
-    ///# }
+    /// # }
     /// ```
-    #[inline(always)]
+    #[inline]
     #[track_caller]
-    pub fn build(self) -> Server<H, S> {
-        let (listener, handler, limits) = self.get_all_limits();
-        Self::store_atomic(&limits);
+    pub fn build(self) -> Server {
+        let (listener, handler, filter, limits) = self.get_all_parts();
 
-        let handler = Arc::new(handler);
-        let worker_pool = ArrayQueue::new(limits.0.max_connections);
+        let stream_queue = Arc::new(SegQueue::new());
+        let error_queue = Arc::new(SegQueue::new());
 
         for _ in 0..limits.0.max_connections {
-            let value = HttpConnection::new(handler.clone(), limits.clone());
-            let _ = worker_pool.push(value);
+            Self::spawn_worker(&stream_queue, &limits, &filter, &handler);
+        }
+        if limits.0.count_503_handlers != 0 {
+            for _ in 0..limits.0.count_503_handlers {
+                Self::spawn_alarmist(&error_queue, &limits);
+            }
+        } else {
+            Self::spawn_quiet_alarmist(&error_queue, &limits);
         }
 
         Server {
             listener,
-            _marker: PhantomData,
-
-            worker_pool: Arc::new(worker_pool),
-            incoming_streams: Arc::new(SegQueue::new()),
-
+            stream_queue,
+            error_queue,
             server_limits: limits.0,
         }
     }
 
-    #[inline(always)]
-    fn store_atomic(limits: &AllTypesLimits) {
-        writer::SOCKET_WRITE_TIMEOUT.store(
-            limits
-                .1
-                .socket_write_timeout
-                .as_micros()
-                .try_into()
-                .unwrap_or(u64::MAX),
-            Ordering::Relaxed,
-        );
+    #[inline]
+    fn spawn_worker(queue: &TcpQueue, limits: &AllLimits, filter: &Arc<F>, handler: &Arc<H>) {
+        let queue = queue.clone();
+        let filter = filter.clone();
+        let mut conn = HttpConnection::new(handler.clone(), limits.clone());
 
-        writer::JSON_ERRORS.store(limits.0.json_errors, Ordering::Relaxed);
+        tokio::spawn(async move {
+            loop {
+                let (mut stream, addr) =
+                    Server::get_stream(&queue, &conn.server_limits.wait_strategy).await;
+
+                let Ok(local_addr) = stream.local_addr() else {
+                    continue;
+                };
+
+                if filter.filter(addr, local_addr, &mut conn.response).is_err() {
+                    let _ = conn
+                        .conn_limits
+                        .write_bytes(&mut stream, conn.response.buffer())
+                        .await;
+
+                    conn.response.reset(&conn.resp_limits);
+                    continue;
+                }
+
+                let _ = conn.run(&mut stream).await;
+            }
+        });
     }
 
-    #[inline(always)]
+    #[inline]
+    fn spawn_alarmist(queue: &TcpQueue, limits: &AllLimits) {
+        let queue = queue.clone();
+        let (server_limits, conn_limits, ..) = limits.clone();
+
+        tokio::spawn(async move {
+            loop {
+                let (mut stream, _) =
+                    Server::get_stream(&queue, &server_limits.wait_strategy).await;
+
+                let _ = conn_limits
+                    .send_error(
+                        &mut stream,
+                        ErrorKind::ServiceUnavailable,
+                        Version::Http11,
+                        server_limits.json_errors,
+                    )
+                    .await;
+            }
+        });
+    }
+
+    #[inline]
+    fn spawn_quiet_alarmist(queue: &TcpQueue, limits: &AllLimits) {
+        let queue = queue.clone();
+        let (server_limits, ..) = limits.clone();
+
+        tokio::spawn(async move {
+            loop {
+                let (stream, _) = Server::get_stream(&queue, &server_limits.wait_strategy).await;
+
+                drop(stream);
+            }
+        });
+    }
+
+    #[inline]
     #[track_caller]
-    fn get_all_limits(self) -> (TcpListener, H, AllTypesLimits) {
+    fn get_all_parts(self) -> (TcpListener, Arc<H>, Arc<F>, AllLimits) {
         (
             self.listener
                 .expect("The `listener` method must be called to create"),
             self.handler
                 .expect("The `handler` method must be called to create"),
+            self.connection_filter,
             (
                 self.server_limits.clone().unwrap_or_default(),
                 self.connection_limits.clone().unwrap_or_default(),
@@ -598,7 +703,8 @@ impl<H: Handler<S>, S: ConnectionData> ServerBuilder<H, S> {
     }
 }
 
-pub(crate) type AllTypesLimits = (
+type TcpQueue = Arc<SegQueue<(TcpStream, SocketAddr)>>;
+pub(crate) type AllLimits = (
     ServerLimits,
     ConnLimits,
     Option<Http09Limits>,

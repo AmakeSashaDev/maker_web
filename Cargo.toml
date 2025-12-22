@@ -1,6 +1,6 @@
 [package]
 name = "maker_web"
-version = "0.1.0"
+version = "0.1.1"
 description = "High-performance, zero-allocation HTTP server for microservices"
 authors = ["AmakeSashaDev <amakesasha@gmail.com>"]
 license = "MIT OR Apache-2.0"
@@ -12,7 +12,7 @@ keywords = ["http", "server", "microservices", "performance", "async"]
 categories = ["web-programming::http-server", "asynchronous", "network-programming"]
 rust-version = "1.75"
 edition = "2021"
-exclude = ["/.github", "/docs", "/examples", "/benches", "**/Cargo.lock", ".gitignore"]
+exclude = ["/.github", "/docs", "/examples", "/benches", ".gitignore", "/src/main.rs"]
 
 [dependencies]
 crossbeam = "0.8.4"
@@ -50,3 +50,5 @@ path = "examples/echo.rs"
 name = "request_inspector"
 path = "examples/request_inspector.rs"
 
+[profile.dev]
+debug = 2 

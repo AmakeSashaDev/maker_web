@@ -491,7 +491,7 @@ impl Parser {
     ) -> Result<usize, io::Error> {
         tokio::select! {
             biased;
-            
+
             read_result = stream.read(&mut self.buffer) => {
                 let n = read_result?;
                 self.len = n;
@@ -556,7 +556,7 @@ impl Parser {
 }
 
 #[cfg(test)]
-mod request {
+mod request_self {
     use super::*;
     use crate::tools::*;
 
@@ -749,9 +749,9 @@ mod request {
                 assert_eq!(t.parser.has_crlf, has_crlf);
 
                 match t.request.version {
-                    Version::Http11 => assert_eq!(t.response.keep_alive, true),
-                    Version::Http10 => assert_eq!(t.response.keep_alive, false),
-                    Version::Http09 => assert_eq!(t.response.keep_alive, false),
+                    Version::Http11 => assert!(t.response.keep_alive),
+                    Version::Http10 => assert!(!t.response.keep_alive),
+                    Version::Http09 => assert!(!t.response.keep_alive),
                 }
             } else if let Err(e) = expected {
                 assert_eq!(t.check_version(), Err(e));
@@ -1267,7 +1267,7 @@ Content-Length: 17\r\n\r\n{\"data\": \"value\"}",
                 )),
             ),
             (
-                format!("GET {} HTTP/1.1\n\n", format!("{url_size}e")),
+                format!("GET {url_size}e HTTP/1.1\n\n"),
                 Err(ErrorKind::InvalidUrl),
             ),
             (
@@ -1279,7 +1279,7 @@ Content-Length: 17\r\n\r\n{\"data\": \"value\"}",
                 )),
             ),
             (
-                format!("GET {} HTTP/1.1\r\n\r\n", format!("{url_parts}/e")),
+                format!("GET {url_parts}/e HTTP/1.1\r\n\r\n"),
                 Err(ErrorKind::InvalidUrl),
             ),
             (
@@ -1309,11 +1309,11 @@ Content-Length: 17\r\n\r\n{\"data\": \"value\"}",
                 )),
             ),
             (
-                format!("GET / HTTP/1.1\r\n{}: value\r\n\n", format!("{h_name}e")),
+                format!("GET / HTTP/1.1\r\n{h_name}e: value\r\n\n"),
                 Err(ErrorKind::InvalidHeader),
             ),
             (
-                format!("GET / HTTP/1.1\r\nName: {}\r\n\r\n", format!("{h_value}e")),
+                format!("GET / HTTP/1.1\r\nName: {h_value}e\r\n\r\n"),
                 Err(ErrorKind::InvalidHeader),
             ),
             (
@@ -1350,8 +1350,8 @@ Content-Length: 17\r\n\r\n{\"data\": \"value\"}",
             ),
             (
                 format!(
-                    "GET / HTTP/1.1\nContent-Length: {}\n\n{}", 
-                    limits.body_size + 1, format!("{body}e")
+                    "GET / HTTP/1.1\nContent-Length: {}\n\n{body}e", 
+                    limits.body_size + 1,
                 ),
                 Err(ErrorKind::BodyTooLarge),
             ),

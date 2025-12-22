@@ -14,7 +14,7 @@ impl Handler<()> for HelloWorld {
 // Changing the basic settings is necessary due to their default conservatism.
 #[tokio::main]
 async fn main() {
-    use maker_web::limits::{ServerLimits, ConnLimits};
+    use maker_web::limits::{ConnLimits, ServerLimits};
 
     Server::builder()
         .listener(TcpListener::bind("127.0.0.1:8080").await.unwrap())
@@ -22,12 +22,11 @@ async fn main() {
         .server_limits(ServerLimits {
             max_connections: 25000,
             max_pending_connections: 50000,
-            .. ServerLimits::default()
-        }
-        )
+            ..ServerLimits::default()
+        })
         .connection_limits(ConnLimits {
             max_requests_per_connection: 100000,
-            .. ConnLimits::default()
+            ..ConnLimits::default()
         })
         .build()
         .launch()

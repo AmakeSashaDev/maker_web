@@ -8,31 +8,48 @@
 [![Documentation](https://img.shields.io/badge/docs-docs.rs-blue)](https://docs.rs/maker_web/latest/maker_web/)
 [![Build Status](https://github.com/AmakeSashaDev/maker_web/actions/workflows/ci.yml/badge.svg)](https://github.com/AmakeSashaDev/maker_web/actions)
 
-# Key Features
+# ✨ Features
 
-## Security & Protection
-- Built-in DoS/DDoS protection — active by default, zero performance cost
-- Fully configurable limits & timeouts for requests, responses, and connections
+## 🔒 Security & Protection
+- **Built-in DoS/DDoS protection** - enabled by default, with no performance penalty.
+- **Fully configurable limits and timeouts** for requests, responses, and connections.
+- **Custom connection filtering** - implement the [`ConnectionFilter`](https://docs.rs/maker_web/latest/maker_web/trait.ConnectionFilter.html) trait to
+reject unwanted connections at the TCP level.
 
-## Zero-Allocation Performance  
-- Zero runtime allocations — predictable and consistent performance
-- Pre-allocated per-connection memory — linear and transparent scaling
+## ⚡ Performance & Memory
+- **Zero-allocation** - no memory allocations after server startup.
+- **Pre-allocated memory for each connection** - linear and transparent scaling.
 
-## Protocol & Control
-- Full HTTP stack (1.1, 1.0, [0.9+](https://docs.rs/maker_web/latest/maker_web/limits/struct.Http09Limits.html)) with keep‑alive
-- Auto‑detection per request — no manual protocol selection needed с keep-alive
-- Fine-grained buffer control for each protocol
+## 🌐 Protocol & Management
+- **Full HTTP stack** - `HTTP/1.1`, `HTTP/1.0`, [`HTTP/0.9+`
+](https://docs.rs/maker_web/latest/maker_web/limits/struct.Http09Limits.html)
+with keep-alive.
+- **Automatic protocol detection for each request** - keep-alive eliminates
+the need for manual protocol selection.
+- **Storing data between requests** - ability to store data between requests in a
+single connection using the [`ConnectionData`] trait.
 
-## Production Ready
-- Graceful degradation — automatic 503 responses during overload
-- [Configurable error format](https://docs.rs/maker_web/latest/maker_web/limits/struct.ServerLimits.html#structfield.json_errors) — structured JSON (with codes/descriptions) or plain HTTP response
-- Resource protection — auto-close connections exceeding configured limits
+## 🏭 Production Ready
+- **Graceful performance degradation** - automatic 503 responses when overloaded.
+- [**Custom error format**
+](https://docs.rs/maker_web/latest/maker_web/limits/struct.ServerLimits.html#structfield.json_errors) -
+structured JSON (with codes/descriptions) or a plain HTTP response.
+- **Resource protection** - automatic closure of connections exceeding set limits.
 
-# Benchmarks
+# 🎯 Use Cases
 
-Performance comparisons are available in the [benchmarks directory](https://github.com/AmakeSashaDev/maker_web/tree/main/benches).
+- **High-throughput microservices** - configurable for specific workloads
+- **Resource-constrained environments** - predictable memory usage  
+- **Internal APIs** - security-conscious defaults
+- **Performance-critical applications** - zero-allocation design
+- **Legacy system integration** - HTTP/1.0 compatibility
 
-# Installation
+# 🌐 Not just code
+Everything that remains outside the documentation—live statistics, deep details, and informal plans—I collect on a [separate website](https://amakesashadev.github.io/maker_web/). This is a space that I strive to keep current and meaningful.
+
+# 🚀 Quick Start
+
+## 1. Installation
 
 Add `maker_web` and [`tokio`](https://crates.io/crates/tokio) to your `Cargo.toml`:
 
@@ -45,7 +62,7 @@ Or manually:
 maker_web = "0.1"
 tokio = { version = "1", features = ["full"] }
 ```
-# Usage example
+## 2. Usage example
 ```rust
 use maker_web::{Handled, Handler, Request, Response, Server, StatusCode};
 use tokio::net::TcpListener;
@@ -80,14 +97,15 @@ async fn main() {
 }
 ```
 
-## Examples
+# 📖 Examples
 
 Check the [examples directory](https://github.com/AmakeSashaDev/maker_web/blob/main/examples) for comprehensive usage examples.
 
-## Support the author
-Visit the [support page](https://amakesashadev.github.io/maker_web/) to learn how you can support this project.
+# 📊 Benchmarks
 
-## License
+Performance comparisons are available in the [benchmarks directory](https://github.com/AmakeSashaDev/maker_web/tree/main/benches).
+
+# 📄 License
 
 `maker_web` is licensed under either of the following, at your option:
 

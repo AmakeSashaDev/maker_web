@@ -7,8 +7,207 @@
 //! - Memory overflows  
 //! - Slowloris attacks
 //! - Header flooding
+//!
+//! # Memory Consumption
+//!
+//! Each active connection consumes memory according to:
+//!
+//! `Total` = [`Request Buffer`](crate::limits::ReqLimits#memory-allocation-strategy) +
+//!           [`Response Buffer`](crate::limits::RespLimits#buffer-management) +
+//!           `Runtime Overhead`
+//!
+//! See each component's documentation for details and configuration options.
+//!
+//! # Examples
+//!
+//! ```no_run
+//! # maker_web::impt_default_handler!{MyHandler}
+//! use maker_web::{Server, limits::{ConnLimits, ReqLimits, ServerLimits}};
+//! use tokio::net::TcpListener;
+//! use std::time::Duration;
+//!
+//! #[tokio::main]
+//! async fn main() {
+//!     Server::builder()
+//!         .listener(TcpListener::bind("127.0.0.1:8080").await.unwrap())
+//!         .handler(MyHandler)
+//!         .server_limits(ServerLimits {
+//!             max_connections: 5000, // Higher concurrency
+//!             ..ServerLimits::default()
+//!         })
+//!         .connection_limits(ConnLimits {
+//!             socket_read_timeout: Duration::from_secs(5),
+//!             max_requests_per_connection: 10_000,
+//!             ..ConnLimits::default()
+//!         })
+//!         .request_limits(ReqLimits {
+//!             header_count: 18,      // More headers for complex APIs
+//!             body_size: 16 * 1024,  // 16KB for larger payloads
+//!             ..ReqLimits::default()
+//!         })
+//!         .build()
+//!         .launch()
+//!         .await;
+//! }
+//! ```
 
 use std::time::Duration;
+
+/// Controls server-level concurrency, queueing, and performance behavior.
+///
+/// Configures how the server handles connection admission, worker pools,
+/// and overload protection with tunable parameters for different workloads.
+///
+/// # Connection management
+/// ```text
+///                            [------------]
+///                            [ Tcp accept ]
+///                            [------------]
+///                                  ||
+///                                  || TCP_STREAM
+///                                  \/
+/// [--------------]   Yes   /----------------\   No   [-------------]
+/// [ Add to queue ] <====== | Queue if full? | =====> [ Sending 503 ]
+/// [--------------]         \----------------/        [-------------]
+///        ||                       
+///        \==================\\          //====================\
+///                            V          V                    ||
+/// [---------]   Yes   /--------------------------\   No   [------]
+/// [ Handler ] <====== | Is there a free handler? | =====> [ Wait ]
+/// [---------]         \--------------------------/        [------]
+/// ```
+///
+/// The queue acts as a buffer between connection acceptance and processing.
+/// Workers continuously poll the queue using the configured `wait_strategy`.
+///
+/// # Handler
+/// A worker process is a continuously running asynchronous task, created once
+/// during initialization (from [tokio::spawn]). It runs in an infinite loop,
+/// processing connections from a shared queue, which is replenished by a TCP
+/// listener. This design eliminates the need to create tasks for each connection,
+/// allowing for efficient resource reuse across an unlimited number of connections.
+#[derive(Debug, Clone)]
+pub struct ServerLimits {
+    /// Maximum number of concurrent active connections being processed (default: `100`).
+    ///
+    /// When the server starts, exactly `max_connections` [handlers](#handler) are
+    /// created and used.
+    pub max_connections: usize,
+
+    /// Maximum number of TCP connections waiting in the admission queue (default: `250`).
+    ///
+    /// All accepted connections first go into this queue. Worker processes select
+    /// connections from here. If the queue becomes full, new connections receive immediate
+    /// HTTP `503` responses.
+    ///
+    /// For more information, see [Connection management](#connection-management).
+    pub max_pending_connections: usize,
+
+    /// Strategy for worker task waiting behavior (default: `Sleep(50μs)`)
+    ///
+    /// Controls how worker tasks wait when connection buffers are empty
+    /// (the size is set by field `max_pending_connections`). Affects latency,
+    /// CPU usage, and throughput characteristics.
+    pub wait_strategy: WaitStrategy,
+
+    /// Dedicated handlers for queue overflow responses (default: `1`).
+    ///
+    /// When the connection queue becomes full, these handlers immediately send
+    /// responses with the [503](crate::StatusCode::ServiceUnavailable) code. Using
+    /// multiple handlers prevents bottlenecks in scenarios with a large volume of
+    /// rejected requests. Set to 0 to silently close the connection (not recommended
+    /// for production HTTP servers).
+    pub count_503_handlers: usize,
+
+    /// Format for error responses (default: `true`)
+    ///
+    /// # Examples
+    /// If `true`, then on error the server will return:
+    /// ```text
+    /// HTTP/1.1 400 Bad Request\r
+    /// connection: close\r
+    /// content-length: 55\r
+    /// content-type: application/json\r
+    /// \r
+    /// {"error":"Invalid HTTP method","code":"INVALID_METHOD"}
+    /// ```
+    /// If `false`, then on error the server will return:
+    /// ```text
+    /// HTTP/1.1 400 Bad Request\r
+    /// connection: close\r
+    /// content-length: 0\r
+    /// \r
+    /// ```
+    pub json_errors: bool,
+
+    #[doc(hidden)]
+    #[allow(dead_code)]
+    pub _priv: (),
+}
+
+impl Default for ServerLimits {
+    fn default() -> Self {
+        Self {
+            max_connections: 100,
+            max_pending_connections: 250,
+            wait_strategy: WaitStrategy::Sleep(Duration::from_micros(50)),
+            count_503_handlers: 1,
+            json_errors: true,
+
+            _priv: (),
+        }
+    }
+}
+
+/// Strategy for worker task waiting when no connections are available
+///
+/// Different strategies optimize for different workload patterns.
+/// Choose based on your latency requirements and resource constraints.
+#[derive(Debug, Clone)]
+pub enum WaitStrategy {
+    /// While waiting, uses [`tokio::task::yield_now()`]
+    ///
+    /// # Note
+    /// According to personal measurements, when using this option, the CPU load
+    /// is 97-99%, so I do not recommend using it.
+    ///
+    /// Server operation with this waiting strategy:
+    /// ```
+    /// # #[tokio::main]
+    /// async fn main() {
+    /// # let mut pool = vec![1, 2, 3];
+    /// #
+    /// let value = loop {
+    ///     if let Some(value) = pool.pop() {
+    ///         break value;
+    ///     }
+    ///
+    ///     tokio::task::yield_now().await;
+    /// };
+    /// # }
+    /// ```
+    Yield,
+
+    /// While waiting, uses [`tokio::time::sleep()`]
+    ///
+    /// Server operation with this waiting strategy:
+    /// ```
+    /// # #[tokio::main]
+    /// async fn main() {
+    /// # let mut pool = vec![1, 2, 3];
+    /// # let time = std::time::Duration::from_micros(50);
+    /// #
+    /// let value = loop {
+    ///     if let Some(value) = pool.pop() {
+    ///         break value;
+    ///     }
+    ///
+    ///     tokio::time::sleep(time).await;
+    /// };
+    /// # }
+    /// ```
+    Sleep(Duration),
+}
 
 /// Connection-level limits and timeouts
 ///
@@ -35,19 +234,19 @@ pub struct ConnLimits {
     /// Maximum number of requests allowed per connection (default: `100`)
     ///
     /// Connection closes after processing this many requests.
-    /// Prevents potential memory leaks and maintains connection health.
+    /// Helps prevent potential memory accumulation and maintains connection health.
     /// Combined with `connection_lifetime`, ensures connections don't live indefinitely.
     pub max_requests_per_connection: usize,
 
-    /// Maximum lifetime of connection from establishment to closure (default: `3 minutes`)
+    /// Maximum lifetime of connection from establishment to closure (default: `2 minutes`)
     ///
     /// Final safety net that guarantees no connection lives longer than this duration.
     /// In practice, connections are typically cleaned up by `socket_read_timeout`
     /// or `max_requests_per_connection` long before this limit is reached.
-    /// Prevents resource exhaustion from extremely long-lived connections.
-    /// It also serves as protection if the business logic takes a very long time
-    /// (for example: query parsing - 0.05 seconds, business logic - 5 seconds.
-    /// In this case, without this limitation, the connection can last 16 minutes (excluding io operations))
+    ///
+    /// This also protects against business logic that takes very long time to execute
+    /// (e.g., query parsing: 0.05s + business logic: 5s = connection could last 16 minutes
+    /// excluding I/O operations without this limit).
     pub connection_lifetime: Duration,
 
     #[doc(hidden)]
@@ -61,9 +260,176 @@ impl Default for ConnLimits {
         Self {
             socket_read_timeout: Duration::from_secs(2),
             socket_write_timeout: Duration::from_secs(3),
-            connection_lifetime: Duration::from_secs(240),
+            connection_lifetime: Duration::from_secs(120),
             max_requests_per_connection: 100,
 
+            _priv: (),
+        }
+    }
+}
+
+/// Configuration for `HTTP/0.9+` protocol support
+///
+/// HTTP/0.9+ is an optimized protocol variant for high-performance scenarios
+/// that maintains backward compatibility with original HTTP/0.9 while adding
+/// modern features like keep_alive connections and query string support.
+///
+/// # Protocol Features
+///
+/// - **Ultra-minimal format**: `GET /path[?query]\r\n` with raw response body
+/// - **Keep_alive support**: Paths starting with `/keep_alive/` maintain persistent connections
+/// - **Query strings**: Full URL parsing with query parameters supported
+/// - **Zero overhead**: No headers, status codes, or other HTTP/1.x metadata
+///
+/// # Request Format
+///
+/// ```text
+/// Standard:      GET /path\r\n
+/// Keep_alive:    GET /keep_alive/path\r\n  
+/// With query:    GET /path?param=value\r\n
+/// Combined:      GET /keep_alive/path?param=value\r\n
+/// ```
+///
+/// # Response Format  
+///
+/// ```text
+/// Raw response body without headers
+/// Connection closes unless `keep_alive` path used
+/// ```
+///
+/// # Error Handling
+///
+/// - **Client errors**: `ERROR: [code] [message]\r\n` response for malformed
+///   requests (e.g., `ERROR: 400 Bad Request\r\n`, `ERROR: 404 Not Found\r\n`)
+/// - **Server failures**: Immediate connection termination for I/O errors and
+///   timeout conditions
+///
+/// # Keep-Alive Management
+///
+/// Connections are automatically closed when:
+/// - **Timeout reached**: no requests within the
+///   [`set time limit`](ConnLimits::socket_read_timeout)
+/// - **Request limit exceeded**: Processed
+///   [`max_requests_per_connection`](Http09Limits::max_requests_per_connection)
+///   on single connection  
+/// - **Explicit close**: Use non-keep_alive path to close connection
+///
+/// To explicitly close a keep_alive connection:
+/// ```text
+/// GET /close-connection\r\n  # Regular path (no /keep_alive/) closes connection
+/// ```
+///
+/// # Protocol Compatibility & Usage Strategies
+///
+/// ## Pure HTTP/0.9+ (Maximum Performance)
+///
+/// Ideal for controlled environments where you implement both client and server:
+/// ```no_run
+/// // Simple HTTP/0.9+ client in 16 lines:
+/// use std::{net::TcpStream, io::{Result, Read, Write}};
+///
+/// # fn main() -> Result<()> {
+/// let mut stream = TcpStream::connect("localhost:8080")?;
+/// let response = http09_client(&mut stream, "GET /hello/world\r\n")?;
+/// println!("{}", response);
+/// # Ok(())
+/// # }
+///
+/// fn http09_client(stream: &mut TcpStream, request: &str) -> Result<String> {
+///     // Sending a request
+///     stream.write_all(request.as_bytes())?;
+///
+///     // Reading a response
+///     let mut line = String::new();
+///     stream.read_to_string(&mut line)?;
+///     
+///     Ok(line)
+/// }
+/// ```
+///
+/// ## Hybrid HTTP/1.X + HTTP/0.9+ (Browser & Complex Scenarios)
+///
+/// **Note**: HTTP/1.X requests interleaved in a connection are subject to [`ConnLimits`].
+///
+/// Combine protocols when you need advanced features or browser compatibility:
+///
+/// - **Initial setup with HTTP/1.X** (authentication, complex headers):
+///    ```text
+///    GET /api HTTP/1.1\r
+///    Host: localhost\r
+///    Authorization: Basic YWxhZGRpbjpvcGVuc2VzYW1l\r
+///    User-Agent: curl/7.64.1\r
+///    \r\n
+///    ```
+///
+/// - **High-frequency data with HTTP/0.9+**:
+///    ```text
+///    GET /keep_alive/api/user/first_name\r
+///    GET /keep_alive/api/user/last_name\r
+///    GET /keep_alive/api/user/country\r
+///    GET /keep_alive/api/user/city\r\n
+///    ```
+///
+/// - **Final request** (choose based on client):
+///    - HTTP/0.9+:
+///      ```text
+///      GET /api/user/time\r\n`
+///      ```
+///    - HTTP/1.X:
+///      ```text  
+///      POST /api/user/time HTTP/1.1\r
+///      Host: localhost\r
+///      Connection: close\r
+///      \r\n
+///      ```
+///
+/// ## HTTP/1.X Only (Public APIs & Maximum Compatibility)
+///
+/// Use standard HTTP/1.X when:
+/// - Serving public APIs to unknown clients
+/// - Browser compatibility is required without custom client implementation
+/// - Advanced HTTP features are needed (CORS, caching headers, etc.)
+///
+/// # Limits
+///
+/// This setting only works for `HTTP/0.9+`. The same-named fields in [`ConnLimits`]
+/// are ignored for this protocol.
+#[derive(Debug, Clone)]
+pub struct Http09Limits {
+    /// Maximum number of requests per keep_alive connection (default: `250`)
+    ///
+    /// Connection automatically closes after processing this many requests,
+    /// even if the timeout hasn't been reached. This prevents potential
+    /// memory leaks and resource exhaustion in long-running connections.
+    ///
+    /// # Examples
+    /// - Value of `250`: connection handles up to 250 requests then closes
+    /// - Value of `1`: effectively disables keep_alive (closes after each request)
+    /// - Value of `usize::MAX`: no limit (use with caution)
+    pub max_requests_per_connection: usize,
+
+    /// Keep_alive connection timeout (default: `30 seconds`)  
+    ///
+    /// Maximum idle time between requests before closing persistent connections.
+    /// Timer resets on each new request. Shorter timeouts free resources faster
+    /// but may increase TCP connection overhead due to more frequent handshakes.
+    ///
+    /// # Trade-offs
+    /// - Shorter (5-10s): better resource cleanup, higher connection overhead
+    /// - Longer (30-60s): lower overhead, but resources held longer
+    /// - Very long (5+ minutes): not recommended outside controlled environments
+    pub connection_lifetime: Duration,
+
+    #[doc(hidden)]
+    #[allow(dead_code)]
+    pub _priv: (),
+}
+
+impl Default for Http09Limits {
+    fn default() -> Self {
+        Self {
+            max_requests_per_connection: 250,
+            connection_lifetime: Duration::from_secs(30),
             _priv: (),
         }
     }
@@ -268,340 +634,6 @@ pub struct ReqLimitsPrecalc {
     pub(crate) len_http09: usize,
 }
 
-/// Configuration for `HTTP/0.9+` protocol support
-///
-/// HTTP/0.9+ is an optimized protocol variant for high-performance scenarios
-/// that maintains backward compatibility with original HTTP/0.9 while adding
-/// modern features like keep_alive connections and query string support.
-///
-/// # Protocol Features
-///
-/// - **Ultra-minimal format**: `GET /path[?query]\r\n` with raw response body
-/// - **Keep_alive support**: Paths starting with `/keep_alive/` maintain persistent connections
-/// - **Query strings**: Full URL parsing with query parameters supported
-/// - **Zero overhead**: No headers, status codes, or other HTTP/1.x metadata
-///
-/// # Request Format
-///
-/// ```text
-/// Standard:      GET /path\r\n
-/// Keep_alive:    GET /keep_alive/path\r\n  
-/// With query:    GET /path?param=value\r\n
-/// Combined:      GET /keep_alive/path?param=value\r\n
-/// ```
-///
-/// # Response Format  
-///
-/// ```text
-/// Raw response body without headers
-/// Connection closes unless `keep_alive` path used
-/// ```
-///
-/// # Error Handling
-///
-/// - **Client errors**: `ERROR: [code] [message]\r\n` response for malformed
-///   requests (e.g., `ERROR: 400 Bad Request\r\n`, `ERROR: 404 Not Found\r\n`)
-/// - **Server failures**: Immediate connection termination for I/O errors and
-///   timeout conditions
-///
-/// # Keep-Alive Management
-///
-/// Connections are automatically closed when:
-/// - **Timeout reached**: no requests within the
-///   [`set time limit`](ConnLimits::socket_read_timeout)
-/// - **Request limit exceeded**: Processed
-///   [`max_requests_per_connection`](Http09Limits::max_requests_per_connection)
-///   on single connection  
-/// - **Explicit close**: Use non-keep_alive path to close connection
-///
-/// To explicitly close a keep_alive connection:
-/// ```text
-/// GET /close-connection\r\n  # Regular path (no /keep_alive/) closes connection
-/// ```
-///
-/// # Protocol Compatibility & Usage Strategies
-///
-/// ## Pure HTTP/0.9+ (Maximum Performance)
-///
-/// Ideal for controlled environments where you implement both client and server:
-/// ```no_run
-/// // Simple HTTP/0.9+ client in 16 lines:
-/// use std::{net::TcpStream, io::{Result, Read, Write}};
-///
-/// # fn main() -> Result<()> {
-/// let mut stream = TcpStream::connect("localhost:8080")?;
-/// let response = http09_client(&mut stream, "GET /hello/world\r\n")?;
-/// println!("{}", response);
-/// # Ok(())
-/// # }
-///
-/// fn http09_client(stream: &mut TcpStream, request: &str) -> Result<String> {
-///     // Sending a request
-///     stream.write_all(request.as_bytes())?;
-///
-///     // Reading a response
-///     let mut line = String::new();
-///     stream.read_to_string(&mut line)?;
-///     
-///     Ok(line)
-/// }
-/// ```
-///
-/// ## Hybrid HTTP/1.X + HTTP/0.9+ (Browser & Complex Scenarios)
-///
-/// **Note**: HTTP/1.X requests interleaved in a connection are subject to [`ConnLimits`].
-///
-/// Combine protocols when you need advanced features or browser compatibility:
-///
-/// - **Initial setup with HTTP/1.X** (authentication, complex headers):
-///    ```text
-///    GET /api HTTP/1.1\r
-///    Host: localhost\r
-///    Authorization: Basic YWxhZGRpbjpvcGVuc2VzYW1l\r
-///    User-Agent: curl/7.64.1\r
-///    \r\n
-///    ```
-///
-/// - **High-frequency data with HTTP/0.9+**:
-///    ```text
-///    GET /keep_alive/api/user/first_name\r
-///    GET /keep_alive/api/user/last_name\r
-///    GET /keep_alive/api/user/country\r
-///    GET /keep_alive/api/user/city\r\n
-///    ```
-///
-/// - **Final request** (choose based on client):
-///    - HTTP/0.9+:
-///      ```text
-///      GET /api/user/time\r\n`
-///      ```
-///    - HTTP/1.X:
-///      ```text  
-///      POST /api/user/time HTTP/1.1\r
-///      Host: localhost\r
-///      Connection: close\r
-///      \r\n
-///      ```
-///
-/// ## HTTP/1.X Only (Public APIs & Maximum Compatibility)
-///
-/// Use standard HTTP/1.X when:
-/// - Serving public APIs to unknown clients
-/// - Browser compatibility is required without custom client implementation
-/// - Advanced HTTP features are needed (CORS, caching headers, etc.)
-///
-/// # Limits
-///
-/// This setting only works for `HTTP/0.9+`. The same fields from [`ConnLimits`]
-/// are ignored for this protocol.
-#[derive(Debug, Clone)]
-pub struct Http09Limits {
-    /// Maximum number of requests per keep_alive connection (default: `250`)
-    ///
-    /// Connection automatically closes after processing this many requests,
-    /// even if the timeout hasn't been reached. This prevents potential
-    /// memory leaks and resource exhaustion in long-running connections.
-    ///
-    /// # Examples
-    /// - Value of `250`: connection handles up to 250 requests then closes
-    /// - Value of `1`: effectively disables keep_alive (closes after each request)
-    /// - Value of `usize::MAX`: no limit (use with caution)
-    pub max_requests_per_connection: usize,
-
-    /// Keep_alive connection timeout (default: `30 seconds`)  
-    ///
-    /// Maximum idle time between requests before closing persistent connections.
-    /// Timer resets on each new request. Shorter timeouts free resources faster
-    /// but may increase TCP connection overhead due to more frequent handshakes.
-    ///
-    /// # Trade-offs
-    /// - Shorter (5-10s): better resource cleanup, higher connection overhead
-    /// - Longer (30-60s): lower overhead, but resources held longer
-    /// - Very long (5+ minutes): not recommended outside controlled environments
-    pub connection_lifetime: Duration,
-
-    #[doc(hidden)]
-    #[allow(dead_code)]
-    pub _priv: (),
-}
-
-impl Default for Http09Limits {
-    fn default() -> Self {
-        Self {
-            max_requests_per_connection: 250,
-            connection_lifetime: Duration::from_secs(30),
-            _priv: (),
-        }
-    }
-}
-
-/// Server-level concurrency and performance configuration
-///
-/// Controls the overall server behavior including connection limits,
-/// queue management, and performance tuning parameters.
-///
-/// # Connection Flow
-///
-/// Admission to the queue:
-/// ```no_run
-/// # use std::collections::VecDeque;
-/// # use tokio::net::TcpListener;
-/// # use maker_web::limits::ServerLimits;
-/// #
-/// # async fn test() -> Result<(), Box<dyn std::error::Error>> {
-/// # let limits = ServerLimits::default();
-/// # let mut queue = VecDeque::with_capacity(limits.max_pending_connections);
-/// # let listener = TcpListener::bind("127.0.0.1:80").await?;
-/// #
-/// let stream = listener.accept().await?;
-///
-/// if queue.len() < limits.max_pending_connections {
-///     queue.push_back(stream);
-/// } else {
-///     // Send 503 Service Unavailable
-/// }
-/// # Ok(())
-/// # }
-/// ```
-/// Connection processing:
-/// ```no_run
-/// # use std::collections::VecDeque;
-/// # use tokio::net::TcpListener;
-/// # use maker_web::limits::ServerLimits;
-/// #
-/// # async fn test() -> Result<(), Box<dyn std::error::Error>> {
-/// # let limits = ServerLimits::default();
-/// # let mut queue = VecDeque::new();
-/// # let listener = TcpListener::bind("127.0.0.1:80").await?;
-/// #
-/// let stream = listener.accept().await?;
-///
-/// if queue.len() < limits.max_pending_connections {
-///     queue.push_back(stream);
-///     // Processing
-/// } else {
-///     // Send 503 Service Unavailable
-/// }
-/// # Ok(())
-/// # }
-/// ```
-/// 1. **Connection Acceptance**: New connections arrive via `TcpListener::accept()`
-///
-/// 2. **Capacity Check**:
-///    - If `active_connections < max_connections`: Process immediately
-///    - If `active_connections == max_connections`: Place in waiting queue
-///
-/// 3. **Queue Processing**: When a worker process becomes available,
-///    the next connection is taken from the waiting queue.
-///
-/// 4. **Overload Protection**:
-///    If `pending_connections >= max_pending_connections`:
-///    - Connection is rejected with HTTP 503 (Service Unavailable)
-#[derive(Debug, Clone)]
-pub struct ServerLimits {
-    /// Maximum number of concurrent active connections being processed (default: `1,000`)
-    pub max_connections: usize,
-
-    /// Maximum number of queued pending connections (default: `10,000`)  
-    ///
-    /// When `max_connections` is reached, new connections are stored in
-    /// a FIFO queue until workers become available.
-    ///
-    /// Larger values handle connection bursts better but consume more memory.
-    pub max_pending_connections: usize,
-
-    /// Strategy for worker task waiting behavior (default: `Sleep(50μs)`)
-    ///
-    /// Controls how worker tasks wait when connection buffer are empty
-    /// (the size is set by field `max_pending_connections`). Affects latency,
-    /// CPU usage, and throughput characteristics.
-    pub wait_strategy: WaitStrategy,
-
-    /// Format for error responses (default: `true`)
-    ///
-    /// # Examples
-    /// If `true`, then on error the server will return:
-    /// ```text
-    /// HTTP/1.1 400 Bad Request\r
-    /// connection: close\r
-    /// content-length: 55\r
-    /// content-type: application/json\r
-    /// \r
-    /// {"error":"Invalid HTTP method","code":"INVALID_METHOD"}
-    /// ```
-    /// If `false`, then on error the server will return:
-    /// ```text
-    /// HTTP/1.1 400 Bad Request\r
-    /// connection: close\r
-    /// content-length: 0\r
-    /// \r
-    /// ```
-    pub json_errors: bool,
-
-    #[doc(hidden)]
-    #[allow(dead_code)]
-    pub _priv: (),
-}
-
-impl Default for ServerLimits {
-    fn default() -> Self {
-        Self {
-            max_connections: 1_000,
-            max_pending_connections: 10_000,
-            wait_strategy: WaitStrategy::Sleep(Duration::from_micros(50)),
-            json_errors: true,
-
-            _priv: (),
-        }
-    }
-}
-
-/// Strategy for worker task waiting when no connections are available
-///
-/// Different strategies optimize for different workload patterns.
-/// Choose based on your latency requirements and resource constraints.
-#[derive(Debug, Clone)]
-pub enum WaitStrategy {
-    /// While waiting, uses [`tokio::task::yield_now()`]
-    ///
-    /// Server operation with this waiting strategy:
-    /// ```
-    /// # #[tokio::main]
-    /// async fn main() {
-    /// # let mut pool = vec![1, 2, 3];
-    /// #
-    /// let value = loop {
-    ///     if let Some(value) = pool.pop() {
-    ///         break value;
-    ///     }
-    ///
-    ///     tokio::task::yield_now().await;
-    /// };
-    /// # }
-    /// ```
-    Yield,
-
-    /// While waiting, uses [`tokio::time::sleep()`]
-    ///
-    /// Server operation with this waiting strategy:
-    /// ```
-    /// # #[tokio::main]
-    /// async fn main() {
-    /// # let mut pool = vec![1, 2, 3];
-    /// # let time = std::time::Duration::from_micros(50);
-    /// #
-    /// let value = loop {
-    ///     if let Some(value) = pool.pop() {
-    ///         break value;
-    ///     }
-    ///
-    ///     tokio::time::sleep(time).await;
-    /// };
-    /// # }
-    /// ```
-    Sleep(Duration),
-}
-
 /// Configuration for response processing and memory allocation limits.
 ///
 /// Controls how response buffers are allocated and managed to balance
@@ -622,6 +654,8 @@ pub enum WaitStrategy {
 ///     buffer.clear();
 /// }
 /// ```
+///
+/// When the server starts, buffers are created with a capacity equal to `default_capacity`.
 #[derive(Debug, Clone)]
 pub struct RespLimits {
     /// Initial buffer capacity allocated for responses (default: `1024 B`)
