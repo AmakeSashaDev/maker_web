@@ -49,6 +49,3 @@ path = "examples/echo.rs"
 [[example]] # Request inspector for debugging
 name = "request_inspector"
 path = "examples/request_inspector.rs"
-
-[profile.dev]
-debug = 2 
