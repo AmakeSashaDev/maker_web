@@ -1,15 +1,33 @@
-name: Publish to crates.io
+name: Publishing on crates.io
 
 on:
-  workflow_dispatch
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
 
 jobs:
+  ensure-ci-passed:
+    name: "Check CI status"
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' && github.ref_type == 'tag' }}
+    steps:
+      - name: Wait for CI to complete
+        uses: fountainhead/action-wait-for-check@v1.0.0
+        id: wait-for-ci
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          checkName: 'CI'
+          ref: ${{ github.sha }}
+          timeoutSeconds: 600
+
   dry-run:
+    needs: [ensure-ci-passed]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: cargo publish --dry-run
-  
+
   publish:
     needs: [dry-run]
     runs-on: ubuntu-latest
