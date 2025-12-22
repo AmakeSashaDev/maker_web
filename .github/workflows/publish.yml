@@ -1,34 +1,21 @@
 name: Publish to crates.io
 
 on:
-  workflow_dispatch:
-    inputs:
-      confirm:
-        description: 'Publish on crates.io?'
-        type: boolean
-        default: false
+  workflow_dispatch
 
 jobs:
   dry-run:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      
-      - name: Run cargo publish --dry-run
-        run: cargo publish --dry-run
-
+      - run: cargo publish --dry-run
+  
   publish:
     needs: [dry-run]
     runs-on: ubuntu-latest
-    timeout-minutes: 2
-    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.confirm == 'true' }}
+    environment: crates.io-publish
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      
-      - name: Publish to crates.io
-        run: cargo publish
+      - run: cargo publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
