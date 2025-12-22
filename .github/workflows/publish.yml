@@ -19,7 +19,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           checkName: 'CI'
           ref: ${{ github.sha }}
-          timeoutSeconds: 600
+          timeoutSeconds: 300
 
   dry-run:
     needs: [ensure-ci-passed]
