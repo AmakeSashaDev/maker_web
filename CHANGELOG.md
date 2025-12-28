@@ -19,7 +19,17 @@
   // But it still works the same:
   impl Handler<MyConnData> for MyHandler {}
   ````
+- Reduced default `ServerLimits` values (**DDoS protection**):
+  - max_connections: `1000` -> `100`
+  - max_pending_connections: `10_000` -> `250`
+
+### Deleted
+- The `http-json-error` feature (**had no implementation**). Was implemented in `ServerLimits::json_errors` since `0.1.0`
 
 ## 0.1.0
 
 Initial release with `HTTP/1.X` and `HTTP/0.9+` support.
+
+## September 3, 2025
+
+🎉🎉🎉 Starting to create a library 🎉🎉🎉
