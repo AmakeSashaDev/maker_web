@@ -430,9 +430,9 @@ pub trait ConnectionFilter: Sync + Send + 'static {
     /// - Machine learning inference
     fn filter_async(
         &self,
-        client_addr: SocketAddr,
-        server_addr: SocketAddr,
-        error_response: &mut Response,
+        #[allow(unused_variables)] client_addr: SocketAddr,
+        #[allow(unused_variables)] server_addr: SocketAddr,
+        #[allow(unused_variables)] error_response: &mut Response,
     ) -> impl Future<Output = Result<(), Handled>> + Send {
         async { Ok(()) }
     }
