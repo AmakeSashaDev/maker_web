@@ -9,7 +9,7 @@ use crate::{
     server::server_impl::{AllLimits, Handler},
     Handled,
 };
-use std::{io, net::SocketAddr, sync::Arc, time::Instant};
+use std::{future::Future, io, net::SocketAddr, sync::Arc, time::Instant};
 use tokio::{io::AsyncWriteExt, net::TcpStream, time::sleep};
 
 pub(crate) struct HttpConnection<H: Handler<S>, S: ConnectionData> {
@@ -247,19 +247,21 @@ impl ConnectionData for () {
 /// A trait for filtering TCP connections before HTTP processing.
 ///
 /// # Examples
-/// ```no_run
-/// use std::net::SocketAddr;
+///
+/// Simple IP Blacklist:
+/// ```
+/// use std::{collections::HashSet, net::{SocketAddr, IpAddr}};
 /// use maker_web::{Server, ConnectionFilter, Response, Handled, StatusCode};
 ///
 /// struct MyConnFilter {
-///     blacklist: Vec<SocketAddr>
+///     blacklist: HashSet<IpAddr>
 /// }
 ///
 /// impl ConnectionFilter for MyConnFilter {
 ///     fn filter(
 ///         &self, client_addr: SocketAddr, _: SocketAddr, err_resp: &mut Response
 ///     ) -> Result<(), Handled> {
-///         if self.blacklist.contains(&client_addr) {
+///         if self.blacklist.contains(&client_addr.ip()) {
 ///             Err(err_resp
 ///                 .status(StatusCode::Forbidden)
 ///                 .body("Your IP is permanently banned"))
@@ -269,29 +271,171 @@ impl ConnectionData for () {
 ///     }
 /// }
 /// ```
+/// File-based IP blacklist:
+/// ```
+/// use std::net::SocketAddr;
+/// use maker_web::{Server, ConnectionFilter, Response, Handled, StatusCode};
+///
+/// # struct DatabaseClient;
+/// #
+/// # impl DatabaseClient {
+/// #     async fn execute(&self, _: &str) -> Option<Vec<&str>> {
+/// #         Some(vec!["true"])
+/// #     }
+/// # }
+/// #
+/// #
+/// struct MyConnFilter {
+///     db: DatabaseClient
+/// }
+///
+/// impl ConnectionFilter for MyConnFilter {
+///     fn filter(&self, _: SocketAddr, _: SocketAddr, _: &mut Response) -> Result<(), Handled> {
+///         Ok(())
+///     }
+///
+///     async fn filter_async(
+///         &self,
+///         client_addr: SocketAddr,
+///         _: SocketAddr,
+///         err_resp: &mut Response,
+///     ) -> Result<(), Handled> {
+///         let request = format!(
+///             "SELECT EXISTS (SELECT 1 FROM ip_blacklist WHERE ip_address = '{}')",
+///             client_addr.ip()
+///         );
+///
+///         if self.db.execute(&request).await == Some(vec!["false"]) {
+///             Ok(()) // IP not found in blacklist
+///         } else {
+///             Err(err_resp
+///                 .status(StatusCode::Forbidden)
+///                 .body("IP found in blacklist file"))
+///         }
+///     }
+/// }
+/// ```
+/// Two-stage filtering with cache:
+/// ```
+/// use std::{collections::HashSet, sync::RwLock, net::{SocketAddr, IpAddr}};
+/// use maker_web::{Server, ConnectionFilter, Response, Handled, StatusCode};
+///
+/// # struct DatabaseClient;
+/// #
+/// # impl DatabaseClient {
+/// #     async fn execute(&self, _: &str) -> Option<Vec<&str>> {
+/// #         Some(vec!["true"])
+/// #     }
+/// # }
+/// #
+/// #
+/// struct MyConnFilter {
+///     cache: RwLock<HashSet<IpAddr>>,
+///     db: DatabaseClient,
+/// }
+///
+/// impl ConnectionFilter for MyConnFilter {
+///     fn filter(
+///         &self, client_addr: SocketAddr, _: SocketAddr, err_resp: &mut Response
+///     ) -> Result<(), Handled> {
+///         let Ok(guard) = self.cache.read() else {
+///             return Err(err_resp.status(StatusCode::InternalServerError)
+///                 .body("Internal server error"));
+///         };
+///
+///         if guard.contains(&client_addr.ip()) {
+///             Err(err_resp
+///                 .status(StatusCode::Forbidden)
+///                 .body("Your IP is permanently banned"))
+///         } else {
+///             Ok(())
+///         }
+///     }
+///
+///     async fn filter_async(
+///         &self,
+///         client_addr: SocketAddr,
+///         _: SocketAddr,
+///         err_resp: &mut Response,
+///     ) -> Result<(), Handled> {
+///         let request = format!(
+///             "SELECT EXISTS (SELECT 1 FROM ip_blacklist WHERE ip_address = '{}')",
+///             client_addr.ip()
+///         );
+///
+///         if self.db.execute(&request).await == Some(vec!["false"]) {
+///             Ok(()) // IP not found in blacklist
+///         } else {
+///             let Ok(mut guard) = self.cache.write() else {
+///                 return Err(err_resp.status(StatusCode::InternalServerError)
+///                     .body("Internal server error"));
+///             };
+///             guard.insert(client_addr.ip());
+///
+///             Err(err_resp
+///                 .status(StatusCode::Forbidden)
+///                 .body("IP found in blacklist file"))
+///         }
+///     }
+/// }
+/// ```
+/// # Connection Filter Architecture
+/// ```text
+///                     [ QUEUE TCP_STREAM ]
+///                              ||
+/// /----------------------------||----------------------------------\
+/// |                            || TCP_STREAM            Tokio Task |
+/// |       /=====================/                                  |
+/// |       \/                                                       |
+/// |   [--------]   Err(Handled)   [----------------------]         |
+/// |   [ filter ] ===============> [ Send `error_response`]         |
+/// |   [--------]                  [----------------------]         |
+/// |       ||                                 /\                    |
+/// |       || Ok(())                          ||                    |
+/// |       \/                Err(Handled)     ||                    |
+/// |   [--------------] ========================/                   |
+/// |   [ filter_async ]                             [-----------]   |
+/// |   [--------------] ==========================> [  Handler  ]   |
+/// |                             Ok(())             [-----------]   |
+/// |                                                                |
+/// \----------------------------------------------------------------/
+/// ```
 pub trait ConnectionFilter: Sync + Send + 'static {
-    /// Determines whether to process an incoming TCP connection.
+    /// Synchronous connection validation.
     ///
-    /// The diagram of the location and operation of this function:
-    /// ```text
-    ///                         [ QUEUE TCP_STREAM ]
-    ///                                  ||
-    /// /--------------------------------||--------------------------------------------\
-    /// | Tokio Task                     || TCP_STREAM                                 |
-    /// |                                \/                                            |
-    /// |   [-----------]   Ok(())   [--------]   Err(Handled)   [-----------------]   |
-    /// |   [  Handler  ] <========= [ Filter ] ===============> [ Send            ]   |
-    /// |   [-----------]            [--------]                  [ `error_response`]   |
-    /// |                                                        [-----------------]   |
-    /// |                                                                              |
-    /// \------------------------------------------------------------------------------/
-    /// ```
+    /// Perform fast, in-memory checks here. Expensive operations should be deferred
+    /// to [`filter_async`](Self::filter_async).
+    ///
+    /// Use for:
+    /// - IP blacklist/whitelist (in-memory cache)
+    /// - Geographic IP restrictions
+    /// - Rate limiting counters
     fn filter(
         &self,
         client_addr: SocketAddr,
         server_addr: SocketAddr,
         error_response: &mut Response,
     ) -> Result<(), Handled>;
+
+    /// Asynchronous connection inspection.
+    ///
+    /// Called after [`filter`](Self::filter) succeeds.Executes asynchronously within
+    /// the Tokio runtime.
+    ///
+    /// Use for:
+    /// - Database lookups
+    /// - External API calls
+    /// - File system operations
+    /// - Complex business logic
+    /// - Machine learning inference
+    fn filter_async(
+        &self,
+        client_addr: SocketAddr,
+        server_addr: SocketAddr,
+        error_response: &mut Response,
+    ) -> impl Future<Output = Result<(), Handled>> + Send {
+        async { Ok(()) }
+    }
 }
 
 impl ConnectionFilter for () {

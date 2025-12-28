@@ -629,7 +629,12 @@ where
                     continue;
                 };
 
-                if filter.filter(addr, local_addr, &mut conn.response).is_err() {
+                if filter.filter(addr, local_addr, &mut conn.response).is_err()
+                    || filter
+                        .filter_async(addr, local_addr, &mut conn.response)
+                        .await
+                        .is_err()
+                {
                     let _ = conn
                         .conn_limits
                         .write_bytes(&mut stream, conn.response.buffer())
