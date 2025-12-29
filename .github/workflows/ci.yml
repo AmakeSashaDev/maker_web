@@ -12,7 +12,7 @@ on:
       - '.github/**'
 
   pull_request:
-    branches: [ "main" ]]
+    branches: [ "main" ]
     paths-ignore:
       - 'LICENSE*'
       - '**/*.md'
