@@ -3,8 +3,23 @@ name: CI
 on:
   push:
     branches: [ "main" ]
+    paths-ignore:
+      - 'LICENSE*'
+      - '**/*.md'
+      - '**/*.txt'
+      - 'docs/**'
+      - 'benches/**'
+      - '.github/**'
+
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main" ]]
+    paths-ignore:
+      - 'LICENSE*'
+      - '**/*.md'
+      - '**/*.txt'
+      - 'docs/**'
+      - 'benches/**'
+      - '.github/**'
 
 env:
   CARGO_TERM_COLOR: always

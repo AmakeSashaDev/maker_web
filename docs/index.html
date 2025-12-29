@@ -89,19 +89,11 @@
                     </div>
                     
                     <div class="box-content">
-                        <a href="https://crates.io/crates/maker_web" class="support-link" target="_blank" rel="noopener noreferrer">
+                        <a href="#" class="support-link" id="windowDownloadLink">
                             <div class="support-icon">📦</div>
                             <div class="support-text">
-                                <strong>Download from crates.io</strong>
+                                <strong>Download</strong>
                                 <span>Add maker_web to your project</span>
-                            </div>
-                        </a>
-
-                        <a href="https://docs.rs/maker_web/latest/maker_web/" class="support-link" target="_blank" rel="noopener noreferrer">
-                            <div class="support-icon">📚</div>
-                            <div class="support-text">
-                                <strong>Read documentation</strong>
-                                <span>Complete API reference on docs.rs</span>
                             </div>
                         </a>
                         
@@ -110,6 +102,14 @@
                             <div class="support-text">
                                 <strong>Check examples</strong>
                                 <span>Learn with practical code examples</span>
+                            </div>
+                        </a>
+
+                        <a href="https://docs.rs/maker_web/latest/maker_web/" class="support-link" target="_blank" rel="noopener noreferrer">
+                            <div class="support-icon">📚</div>
+                            <div class="support-text">
+                                <strong>Read documentation</strong>
+                                <span>Complete API reference on docs.rs</span>
                             </div>
                         </a>
 
@@ -166,31 +166,35 @@
                 <h2>👨‍💻 From the Author</h2>
 <p>I started <strong>maker_web</strong> without a clear plan, simply wanting to create something useful. The result is a tool that embodies freedom, speed, and security. I don't strive for "convenience" at the expense of freedom. And I love how it turned out.</p>
 <p>You'll see the <strong>PHILOSOPHY.md</strong> file in the project soon :)</p>
-                
+
+<p class="current-note">
+    🤒 <strong>Note:</strong> I've come down with the flu, which has stopped the project's development completely. But I'm already recovering and getting back to my normal routine. Please forgive me for that. 🙏
+</p>
+
 <div class="features">
     <div class="feature">
-        <strong>Security & Protection</strong>
+        <strong>🔒 Security & Protection</strong>
         <small>Built-in DoS/DDoS protection — zero performance cost</small>
     </div>
     <div class="feature">
-        <strong>Zero-Allocation Performance</strong>
-        <small>Zero runtime allocations — predictable performance</small>
+        <strong>🔗 ConnectionFilter Trait</strong>
+        <small>Reject unwanted connections at the TCP level before processing</small>
     </div>
     <div class="feature">
-        <strong>Full HTTP Stack</strong>
-        <small>HTTP/1.1, HTTP/1.0, HTTP/0.9+ with keep‑alive</small>
+        <strong>🌐 Full HTTP Stack</strong>
+        <small>HTTP/1.1, HTTP/1.0, HTTP/0.9+ with keep‑alive support</small>
     </div>
     <div class="feature">
-        <strong>Graceful Degradation</strong>
-        <small>Automatic 503 responses during overload</small>
+        <strong>💾 ConnectionData Trait</strong>
+        <small>Store data between requests in a single connection</small>
     </div>
     <div class="feature">
-        <strong>Configurable Limits</strong>
-        <small>Fully configurable limits & timeouts</small>
+        <strong>🏭 Graceful Degradation</strong>
+        <small>Automatic 503 responses during overload conditions</small>
     </div>
     <div class="feature">
-        <strong>Configurable Errors</strong>
-        <small>Structured JSON or plain HTTP response</small>
+        <strong>⚙️ Configurable Limits & Timeouts</strong>
+        <small>Fully configurable for requests, responses, and connections</small>
     </div>
 </div>
                 
@@ -303,8 +307,38 @@ async fn main() {
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/rust.min.js"></script>
+<div class="share-overlay" id="windowDownload">
+    <div class="share-modal">
+        <h3>📦 Download maker_web</h3>
+
+        <h7>Choose one option:</h7>
+
+        <div style="text-align: center; margin: 20px 0;">
+            <span class="example-badge" style="font-size: 0.9rem; padding: 8px 20px; background: rgba(34, 197, 94, 0.1);">Run in terminal</span>
+        </div>
+        <div class="api-example">
+            <pre style="text-align: left !important;"><code class="language-rust">cargo add maker_web tokio --features tokio/full</code></pre>
+        </div>
+
+        <div style="text-align: center; margin: 20px 0;">
+            <span class="example-badge" style="font-size: 0.9rem; padding: 8px 20px; background: rgba(34, 197, 94, 0.1);">Add to your Cargo.toml</span>
+        </div>
+        <div class="api-example">
+            <pre style="text-align: left !important;"><code class="language-rust">[dependencies]
+maker_web = "0.1"
+tokio = { version = "1", features = ["full"] }</code></pre>
+        </div>
+
+        <div style="text-align: center; margin: 20px 0;">
+            <span class="example-badge" style="font-size: 0.9rem; padding: 8px 20px; background: rgba(34, 197, 94, 0.1);">Clone from Github</span>
+        </div>
+        <div class="api-example">
+            <pre style="text-align: left !important;"><code class="language-rust">git clone https://github.com/AmakeSashaDev/maker_web</code></pre>
+        </div>
+
+        <button class="close-button" id="closeWindowDownload">Close</button>
+    </div>
+</div>
     <script src="script.js"></script>
 </body>
 </html>

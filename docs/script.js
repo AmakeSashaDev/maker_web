@@ -191,12 +191,47 @@ function setupShareModal() {
     });
 }
 
+function setupDownloadModal() {
+    const shareLink = document.getElementById('windowDownloadLink');
+    const shareOverlay = document.getElementById('windowDownload');
+    const closeButton = document.getElementById('closeWindowDownload');
+    
+    const projectUrl = 'https://github.com/AmakeSashaDev/maker_web';
+    
+    shareLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        shareOverlay.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        shareUrl.value = projectUrl;
+        shareUrl.select();
+    });
+    
+    closeButton.addEventListener('click', () => {
+        shareOverlay.style.display = 'none';
+        document.body.style.overflow = 'auto';
+    });
+    
+    shareOverlay.addEventListener('click', (e) => {
+        if (e.target === shareOverlay) {
+            shareOverlay.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+    });
+    
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && shareOverlay.style.display === 'flex') {
+            shareOverlay.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+    });
+}
+
 function setupExamplesCopy() {
     document.querySelectorAll('.api-example pre').forEach(pre => {
         const copyBtn = document.createElement('button');
         copyBtn.className = 'copy-example-btn';
         copyBtn.innerHTML = '📋';
-        copyBtn.title = 'Копировать код';
+        copyBtn.title = 'Copy code';
         
         copyBtn.addEventListener('click', async () => {
             const code = pre.querySelector('code').textContent;
@@ -207,34 +242,12 @@ function setupExamplesCopy() {
                     copyBtn.innerHTML = '📋';
                 }, 2000);
             } catch (err) {
-                console.error('Ошибка копирования:', err);
+                console.error('Copy error:', err);
             }
         });
         
         pre.appendChild(copyBtn);
     });
-    
-    const copyAllBtn = document.getElementById('copyAllExamples');
-    if (copyAllBtn) {
-        copyAllBtn.addEventListener('click', async () => {
-            const allExamples = Array.from(document.querySelectorAll('.api-example pre code'))
-                .map(code => code.textContent)
-                .join('\n\n// ========================================\n\n');
-            
-            try {
-                await navigator.clipboard.writeText(allExamples);
-                copyAllBtn.innerHTML = '✅ Все примеры скопированы!';
-                copyAllBtn.style.background = '#16a34a';
-                
-                setTimeout(() => {
-                    copyAllBtn.innerHTML = '📋 Скопировать все примеры';
-                    copyAllBtn.style.background = '#22c55e';
-                }, 3000);
-            } catch (err) {
-                console.error('Ошибка копирования:', err);
-            }
-        });
-    }
 }
 
 function init() {
@@ -243,6 +256,7 @@ function init() {
     initTheme();
     setupThemeToggle();
     setupShareModal();
+    setupDownloadModal();
     setupExamplesCopy();
     
     loadStats();
