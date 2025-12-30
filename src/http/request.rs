@@ -7,7 +7,11 @@ use crate::{
     ConnectionData, Handler, Method, Url, Version,
 };
 use memchr::{memchr, memchr_iter};
-use std::{io, mem, time::Duration};
+use std::{
+    io, mem,
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    time::Duration,
+};
 use tokio::{io::AsyncReadExt, net::TcpStream, time::sleep};
 
 /// High-performance HTTP request representation.
@@ -22,9 +26,15 @@ pub struct Request {
     version: Version,
     headers: HeaderMap,
     body: Option<&'static [u8]>,
+
+    pub(crate) client_addr: SocketAddr,
+    pub(crate) server_addr: SocketAddr,
 }
 
 impl Request {
+    const UNKNOWN_CLIENT: SocketAddr = { SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0) };
+    const DEFAULT_SERVER: SocketAddr = { SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0) };
+
     #[inline(always)]
     pub(crate) fn new(limits: &ReqLimits) -> Self {
         Request {
@@ -33,6 +43,9 @@ impl Request {
             version: Version::Http11,
             headers: HeaderMap::new(limits.header_count),
             body: None,
+
+            client_addr: Self::UNKNOWN_CLIENT,
+            server_addr: Self::DEFAULT_SERVER,
         }
     }
 
@@ -48,6 +61,16 @@ impl Request {
 
 // Public API
 impl Request {
+    #[inline(always)]
+    pub const fn client_addr(&self) -> &SocketAddr {
+        &self.client_addr
+    }
+
+    #[inline(always)]
+    pub const fn server_addr(&self) -> &SocketAddr {
+        &self.server_addr
+    }
+
     #[inline(always)]
     pub const fn method(&self) -> Method {
         self.method

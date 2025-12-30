@@ -58,7 +58,15 @@ impl<H: Handler<S>, S: ConnectionData> HttpConnection<H, S> {
 
 impl<H: Handler<S>, S: ConnectionData> HttpConnection<H, S> {
     #[inline]
-    pub(crate) async fn run(&mut self, stream: &mut TcpStream) -> Result<(), io::Error> {
+    pub(crate) async fn run(
+        &mut self,
+        stream: &mut TcpStream,
+        client_addr: SocketAddr,
+        server_addr: SocketAddr,
+    ) -> Result<(), io::Error> {
+        self.request.client_addr = client_addr;
+        self.request.server_addr = server_addr;
+
         match self.impl_run(stream).await {
             Ok(()) => Ok(()),
             Err(ErrorKind::Io(e)) => Err(e.0),

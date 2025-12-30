@@ -622,16 +622,16 @@ where
 
         tokio::spawn(async move {
             loop {
-                let (mut stream, addr) =
+                let (mut stream, c_addr) =
                     Server::get_stream(&queue, &conn.server_limits.wait_strategy).await;
 
-                let Ok(local_addr) = stream.local_addr() else {
+                let Ok(s_addr) = stream.local_addr() else {
                     continue;
                 };
 
-                if filter.filter(addr, local_addr, &mut conn.response).is_err()
+                if filter.filter(c_addr, s_addr, &mut conn.response).is_err()
                     || filter
-                        .filter_async(addr, local_addr, &mut conn.response)
+                        .filter_async(c_addr, s_addr, &mut conn.response)
                         .await
                         .is_err()
                 {
@@ -644,7 +644,7 @@ where
                     continue;
                 }
 
-                let _ = conn.run(&mut stream).await;
+                let _ = conn.run(&mut stream, c_addr, s_addr).await;
             }
         });
     }
