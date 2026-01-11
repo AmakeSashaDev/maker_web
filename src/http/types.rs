@@ -119,7 +119,7 @@ impl Version {
         match self {
             Version::Http11 => "HTTP/1.1",
             Version::Http10 => "HTTP/1.0",
-            Version::Http09 => "HTTP/0.9+"
+            Version::Http09 => "HTTP/0.9+",
         }
     }
 }
