@@ -486,7 +486,7 @@ impl Request {
             (b" HTTP/1.1\r\n", true) => return Err(ErrorKind::InvalidHeader),
             (b" HTTP/1.0\r\n", false) => (Version::Http10, false),
             (b" HTTP/1.0\r\n", true) => return Err(ErrorKind::InvalidHeader),
-            
+
             #[rustfmt::skip]
             ([rest @ .., b'\r', b'\n'], true) if
                 has_http_09 && rest.len() <= 1 && rest != b" " => 
@@ -978,9 +978,9 @@ mod request_self {
                 assert_eq!(t.request.version, version);
 
                 match t.request.version {
-                    Version::Http11 => assert_eq!(t.request.keep_alive, true),
-                    Version::Http10 => assert_eq!(t.request.keep_alive, false),
-                    Version::Http09 => assert_eq!(t.request.keep_alive, false),
+                    Version::Http11 => assert!(t.request.is_keep_alive()),
+                    Version::Http10 => assert!(!t.request.is_keep_alive()),
+                    Version::Http09 => assert!(!t.request.is_keep_alive()),
                 }
             } else if let Err(e) = expected {
                 assert_eq!(t.parse_request(), Err(e));
