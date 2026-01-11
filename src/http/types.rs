@@ -346,7 +346,7 @@ pub struct Url {
     pub(crate) parts: Vec<&'static str>,
     pub(crate) query: Option<&'static str>,
     // If you make &str, you'll either have to use `std::str::from_utf8`, which
-    // will hurt performance, or `std::str::from_utf8_unchecked`, which requires 
+    // will hurt performance, or `std::str::from_utf8_unchecked`, which requires
     // valid data (the public API can't provide it).
     pub(crate) query_parts: Vec<(&'static [u8], &'static [u8])>,
     // For HTTP/0.9+ (ignoring prefix `/keep_alive`)
