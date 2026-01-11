@@ -17,7 +17,7 @@ cargo run --example echo
 - GET request with URL path
   ```
   curl http://localhost:8080/api/test
-  # {"url": "/api/test", "body": ""}
+  # {"url": "/api/test"}
   ```
 - POST request with JSON body
   ```

@@ -71,14 +71,14 @@ struct MyHandler;
 
 impl Handler<()> for MyHandler {
     async fn handle(&self, _: &mut (), req: &Request, resp: &mut Response) -> Handled {
-        match req.url().path_segments() {
-            [b"api", user, b"name"] => {
+        match req.url().path_segments_str() {
+            ["api", user, "name"] => {
                 resp.status(StatusCode::Ok).body(user)
             }
-            [b"api", user, b"name", b"len"] => {
+            ["api", user, "name", "len"] => {
                 resp.status(StatusCode::Ok).body(user.len())
             }
-            [b"api", b"echo", text] => {
+            ["api", "echo", text] => {
                 resp.status(StatusCode::Ok).body(text)
             }
             _ => resp.status(StatusCode::NotFound).body("qwe"),

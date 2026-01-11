@@ -6,11 +6,13 @@ struct MyHandler;
 
 impl Handler for MyHandler {
     async fn handle(&self, _: &mut (), req: &Request, resp: &mut Response) -> Handled {
-        let result = format!(
-            r#"{{"url": {:?}, "body": {:?}}}"#,
-            from_utf8(req.url().path()).unwrap_or(""),
-            from_utf8(req.body().unwrap_or(&[])).unwrap_or(""),
-        );
+        let body = if let Some(body) = req.body() {
+            format!(r#", "body": {:?}"#, body)
+        } else {
+            String::new()
+        };
+
+        let result = format!(r#"{{"url": {:?}{body}}}"#, req.url().path_str());
 
         resp.status(StatusCode::Ok)
             .header("Content-Type", "application/json")
