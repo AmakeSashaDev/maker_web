@@ -1,11 +1,12 @@
 use crate::{query, Version};
 use std::{error, fmt, io};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) enum ErrorKind {
     InvalidMethod,
 
     InvalidUrl,
+    DoubleSlash,
     #[allow(dead_code)]
     Query(query::Error),
 
@@ -26,6 +27,7 @@ pub(crate) enum ErrorKind {
     #[allow(dead_code)]
     UnexpectedBody(usize),
 
+    InvalidEncoding,
     ServiceUnavailable,
     Io(IoError),
 }
@@ -79,6 +81,8 @@ impl ErrorKind {
 
         InvalidUrl: "400 Bad Request", "51"
             => r#"{"error":"Invalid URL format","code":"INVALID_URL"}"#;
+        DoubleSlash: "400 Bad Request", "81"
+            => r#"{"error":"Consecutive slashes in URL","code":"DOUBLE_SLASH","msg":"fix yourself"}"#;
         Query: "400 Bad Request", "55"
             => r#"{"error":"Invalid query string","code":"INVALID_QUERY"}"#;
 
@@ -103,6 +107,8 @@ impl ErrorKind {
         UnexpectedBody: "400 Bad Request", "60"
             => r#"{"error":"Unexpected request body","code":"UNEXPECTED_BODY"}"#;
 
+        InvalidEncoding: "400 Bad Request", "64"
+            => r#"{"error":"Invalid character encoding","code":"INVALID_ENCODING"}"#;
         ServiceUnavailable: "503 Service Unavailable", "72"
             => r#"{"error":"Service temporarily unavailable","code":"SERVICE_UNAVAILABLE"}"#;
         Io: "503 Service Unavailable", "48"
@@ -134,5 +140,14 @@ pub(crate) struct IoError(pub(crate) io::Error);
 impl PartialEq for IoError {
     fn eq(&self, other: &Self) -> bool {
         self.0.kind() == other.0.kind()
+    }
+}
+
+impl Clone for IoError {
+    fn clone(&self) -> Self {
+        // To avoid using it in production code
+        println!("Clone IoError");
+
+        Self(io::Error::new(self.0.kind(), self.0.to_string()))
     }
 }

@@ -124,11 +124,32 @@ pub use crate::{
 };
 
 #[doc(hidden)]
-pub fn run_test<F: FnOnce(&Request, &mut Response) -> Handled>(f: F) {
-    f(
-        &Request::new(&crate::limits::ReqLimits::default()),
-        &mut Response::new(&crate::limits::RespLimits::default()),
-    );
+pub mod docs_rs_helper {
+    use crate::{
+        limits::{Http09Limits, ReqLimits, RespLimits},
+        server::connection::HttpConnection,
+        Handled, Request, Response,
+    };
+
+    pub fn run_test<F: FnOnce(&Request, &mut Response) -> Handled>(f: F) {
+        f(
+            &Request::new(&ReqLimits::default()),
+            &mut Response::new(&RespLimits::default()),
+        );
+    }
+
+    pub fn example_url_http1x<F: FnOnce(&Request)>(from: &str, f: F) {
+        let mut t = HttpConnection::from_req(format!("GET {from} HTTP/1.1\r\n\r\n"));
+        t.parse_request().unwrap();
+        f(&t.request);
+    }
+
+    pub fn example_url_http09<F: FnOnce(&Request)>(from: &str, f: F) {
+        let mut t = HttpConnection::from_req(format!("GET {from}\r\n"));
+        t.http_09_limits = Some(Http09Limits::default());
+        t.parse_request().unwrap();
+        f(&t.request);
+    }
 }
 
 #[doc(hidden)]
@@ -151,11 +172,6 @@ macro_rules! impt_default_handler {
 #[cfg(test)]
 pub(crate) mod tools {
     use std::str::from_utf8;
-
-    #[inline]
-    pub(crate) fn str(value: Option<&[u8]>) -> Option<&str> {
-        Some(from_utf8(value?).unwrap())
-    }
 
     #[inline]
     pub(crate) fn str_op(value: &[u8]) -> &str {

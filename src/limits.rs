@@ -276,18 +276,40 @@ impl Default for ConnLimits {
 ///
 /// # Protocol Features
 ///
-/// - **Ultra-minimal format**: `GET /path[?query]\r\n` with raw response body
+/// - **Ultra-minimal format**:
+///   [See transcript](crate::Request#general-designations)
+///   ```text
+///   [METHOD] SP [PATH] CRLF
+///   ```
 /// - **Keep_alive support**: Paths starting with `/keep_alive/` maintain persistent connections
 /// - **Query strings**: Full URL parsing with query parameters supported
-/// - **Zero overhead**: No headers, status codes, or other HTTP/1.x metadata
+/// - **Zero overhead**: No headers, status codes, or other `HTTP/1.x` metadata
+/// - **Support all HTTP methods**:
+///   
+///   Starting with `maker_web@0.1.2` `HTTP/0.9+` starts supporting
+///   [all methods](crate::Method) that `HTTP/1.x`.
+///  
+///   **Examples**:
+///   ```text
+///   GET /users/123/posts\r\n
+///   POST /orders\r\n
+///   PUT /products/456\r\n
+///   DELETE /comments/789\r\n
+///   HEAD /api/status\r\n
+///   PATCH /profile/settings\r\n
+///   OPTIONS /auth\r\n
+///   GET /feed?page=2&limit=20\r\n
+///   DELETE /sessions?all=true\r\n
+///   ```
+///   And it all works now :D
 ///
 /// # Request Format
 ///
 /// ```text
-/// Standard:      GET /path\r\n
-/// Keep_alive:    GET /keep_alive/path\r\n  
-/// With query:    GET /path?param=value\r\n
-/// Combined:      GET /keep_alive/path?param=value\r\n
+/// Standard:     GET /path\r\n
+/// Keep_alive:   POST /keep_alive/path\r\n  
+/// With query:   PUT /path?param=value\r\n
+/// Combined:     HEAD /keep_alive/path?param=value\r\n
 /// ```
 ///
 /// # Response Format  
@@ -368,9 +390,15 @@ impl Default for ConnLimits {
 ///    GET /keep_alive/api/user/last_name\r
 ///    GET /keep_alive/api/user/country\r
 ///    GET /keep_alive/api/user/city\r\n
+///
+///    POST /keep_alive/api/user?last_name=Qwe\r\n
+///    POST /keep_alive/api/user?first_name=Rty\r\n
+///    POST /keep_alive/api/user?city=123\r\n
+///
+///    DELETE /keep_alive/api/user/123\r\n
 ///    ```
 ///
-/// - **Final request** (choose based on client):
+/// - **Final request** (is selected depending on the conditions):
 ///    - HTTP/0.9+:
 ///      ```text
 ///      GET /api/user/time\r\n`
@@ -499,6 +527,11 @@ pub struct ReqLimits {
     /// Counts slashes in path (e.g., `/api/users/123` has 3 segments).
     /// Sufficient for most REST APIs. Increase for very deep nesting.
     pub url_parts: usize,
+    /// Maximum query string length (default: `128`)
+    ///
+    /// Covers the entire query request, including `?` (e.g., `?sort=name&debug`).
+    /// If you don't need this limit, set it to [url_size](Self::url_size).
+    pub url_query_size: usize,
     /// Maximum number of query parameters (default: `8`)
     ///
     /// Limits the URL query string to N `key=value` pairs separated by `&` when N > 1
@@ -538,9 +571,10 @@ impl Default for ReqLimits {
     fn default() -> Self {
         Self {
             // Security-conscious defaults
-            url_size: 256,      // Enough for: /api/v1/users/search?q=test&page=1
-            url_parts: 8,       // /api/users/123
-            url_query_parts: 8, // ?sort=name&debug
+            url_size: 256,       // Enough for: /api/v1/users/search?q=test&page=1
+            url_parts: 8,        // /api/users/123
+            url_query_size: 128, // Enough for: ?sort=name&debug
+            url_query_parts: 8,  // ?sort=name&debug
 
             header_count: 16,       // Typical: 10-12 browser headers + 4-6 custom
             header_name_size: 64,   // Fits: x-custom-auth-token-header-name
@@ -586,15 +620,13 @@ impl ReqLimits {
         self.precalc.first_line = self.first_line();
         self.precalc.h_line = self.h_line();
         self.precalc.buffer = self.buffer();
-        self.precalc.url_size_memchr = self.url_size + 1;
-        self.precalc.len_http09 = self.url_size + 6;
-        self.url_parts = self.url_parts.saturating_sub(1);
+        self.precalc.req_without_body = self.precalc.buffer - self.body_size;
 
         self
     }
 
     #[inline(always)]
-    // First line + Header * N + "\r\n" + Mini body
+    // First line + Header * N + "\r\n" + Body
     fn buffer(&self) -> usize {
         self.precalc.first_line + self.header_count * self.precalc.h_line + 2 + self.body_size
     }
@@ -629,9 +661,8 @@ impl ReqLimits {
 pub struct ReqLimitsPrecalc {
     pub(crate) buffer: usize,
     pub(crate) first_line: usize,
+    pub(crate) req_without_body: usize,
     pub(crate) h_line: usize,
-    pub(crate) url_size_memchr: usize,
-    pub(crate) len_http09: usize,
 }
 
 /// Configuration for response processing and memory allocation limits.

@@ -5,7 +5,7 @@ description = "High-performance, zero-allocation HTTP server for microservices"
 authors = ["AmakeSashaDev <amakesasha@gmail.com>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/AmakeSashaDev/maker_web"
-homepage = "https://github.com/AmakeSashaDev/maker_web"
+homepage = "https://amakesashadev.github.io/maker_web"
 documentation = "https://docs.rs/maker_web"
 readme = "README.md"
 keywords = ["http", "server", "microservices", "performance", "async"]
@@ -16,7 +16,9 @@ exclude = ["/.github", "/docs", "/examples", "/benches", ".gitignore", "/src/mai
 
 [dependencies]
 crossbeam = "0.8.4"
+easybench = "1.1.1"
 memchr = "2.7.5"
+simdutf8 = "0.1.5"
 tokio = { version = "1.21.2", features = ["net", "io-util", "rt", "rt-multi-thread", "sync", "time", "macros"] }
 
 [profile.release]

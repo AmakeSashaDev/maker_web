@@ -1,6 +1,5 @@
 //! Zero-copy URL query string parser with flexible collection support.
 
-use memchr::memchr;
 use std::{collections::HashMap, error, fmt};
 
 /// Zero-copy URL query string parser.
@@ -142,19 +141,24 @@ impl Query {
             }
 
             // Find next '&' or end of string
-            let end = memchr(b'&', &data[start..])
+            let end = &data[start..]
+                .iter()
+                .position(|&c| c == b'&')
                 .map(|pos| start + pos)
                 .unwrap_or(data.len());
 
             // Find '=' within current parameter segment
-            let index = memchr(b'=', &data[start..end]).unwrap_or(end - start);
+            let index = &data[start..*end]
+                .iter()
+                .position(|&c| c == b'=')
+                .unwrap_or(end - start);
             let split_index = start + index;
 
             // Extract key and value
             let key = &data[start..split_index];
-            let value = match split_index < end {
-                true => &data[split_index + 1..end], // Has value after '='
-                false => b"",                        // No value (key only)
+            let value = match split_index < *end {
+                true => &data[split_index + 1..*end], // Has value after '='
+                false => b"",                         // No value (key only)
             };
 
             result.add_param(key, value);

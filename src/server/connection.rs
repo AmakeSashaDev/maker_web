@@ -99,7 +99,9 @@ impl<H: Handler<S>, S: ConnectionData> HttpConnection<H, S> {
             {
                 break;
             }
-            self.response.version = self.parse()?;
+
+            self.parse_request()?;
+            self.response.synchronization_with_request(&self.request);
 
             self.handler
                 .handle(&mut self.connection_data, &self.request, &mut self.response)
@@ -454,7 +456,8 @@ impl ConnectionFilter for () {
 
 //
 
-#[cfg(test)]
+// For tests
+#[doc(hidden)]
 mod def_handler {
     use super::*;
     use crate::{Handled, StatusCode};

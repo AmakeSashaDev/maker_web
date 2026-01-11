@@ -3,7 +3,7 @@
 use crate::{
     http::types::{StatusCode, Version},
     limits::RespLimits,
-    BodyWriter, WriteBuffer,
+    BodyWriter, Request, WriteBuffer,
 };
 use std::{borrow::Cow, rc::Rc, sync::Arc};
 
@@ -76,6 +76,12 @@ impl Response {
     }
 
     #[inline(always)]
+    pub(crate) fn synchronization_with_request(&mut self, req: &Request) {
+        self.version = req.version();
+        self.keep_alive = req.is_keep_alive();
+    }
+
+    #[inline(always)]
     pub(crate) fn reset(&mut self, limits: &RespLimits) {
         if self.buffer.capacity() > limits.max_capacity {
             self.buffer = Vec::with_capacity(limits.default_capacity);
@@ -102,7 +108,7 @@ impl Response {
     ///
     /// # Examples
     /// ```
-    /// # maker_web::run_test(|req, resp| {
+    /// # maker_web::docs_rs_helper::run_test(|req, resp| {
     /// use maker_web::{StatusCode, Version};
     ///
     /// if req.version() == Version::Http09 {
@@ -137,7 +143,7 @@ impl Response {
     ///
     /// # Examples
     /// ```
-    /// # maker_web::run_test(|req, resp| {
+    /// # maker_web::docs_rs_helper::run_test(|req, resp| {
     /// use maker_web::{StatusCode, Version};
     ///
     /// if req.url().target() == b"/connection/close" {
@@ -174,7 +180,7 @@ impl Response {
     ///
     /// # Examples
     /// ```
-    /// # maker_web::run_test(|_, resp| {
+    /// # maker_web::docs_rs_helper::run_test(|_, resp| {
     /// use maker_web::StatusCode;
     ///
     /// resp.status(StatusCode::NotFound)
@@ -217,7 +223,7 @@ impl Response {
     ///
     /// # Examples
     /// ```
-    /// # maker_web::run_test(|_, resp| {
+    /// # maker_web::docs_rs_helper::run_test(|_, resp| {
     /// use maker_web::StatusCode;
     ///
     /// resp.status(StatusCode::Ok)
@@ -257,7 +263,7 @@ impl Response {
     ///
     /// # Examples
     /// ```
-    /// # maker_web::run_test(|_, resp| {
+    /// # maker_web::docs_rs_helper::run_test(|_, resp| {
     /// use maker_web::StatusCode;
     ///
     /// resp.status(StatusCode::Ok)
@@ -316,7 +322,7 @@ impl Response {
     ///
     /// # Examples
     /// ```
-    /// # maker_web::run_test(|_, resp| {
+    /// # maker_web::docs_rs_helper::run_test(|_, resp| {
     /// use maker_web::StatusCode;
     ///
     /// resp.status(StatusCode::Ok)
@@ -391,7 +397,7 @@ impl Response {
     ///
     /// # Examples
     /// ```
-    /// # maker_web::run_test(|_, resp| {
+    /// # maker_web::docs_rs_helper::run_test(|_, resp| {
     /// use maker_web::StatusCode;
     //
     /// resp.status(StatusCode::Ok)
@@ -431,7 +437,7 @@ impl Response {
     /// # Examples
     /// Using [`write!`]:
     /// ```
-    /// # maker_web::run_test(|_, resp| {
+    /// # maker_web::docs_rs_helper::run_test(|_, resp| {
     /// use maker_web::StatusCode;
     /// use std::io::Write;
     ///
@@ -445,7 +451,7 @@ impl Response {
     /// ```
     /// Using [`WriteBuffer`]:
     /// ```rust
-    /// # maker_web::run_test(|_, resp| {
+    /// # maker_web::docs_rs_helper::run_test(|_, resp| {
     /// use maker_web::StatusCode;
     ///
     /// resp.status(StatusCode::Ok)
@@ -556,7 +562,7 @@ impl Response {
     ///
     /// # Examples
     /// ```
-    /// # maker_web::run_test(|req, resp| {
+    /// # maker_web::docs_rs_helper::run_test(|req, resp| {
     /// use maker_web::{StatusCode, Version};
     ///
     /// // For HTTP/0.9+ requests - simple raw response
@@ -571,7 +577,7 @@ impl Response {
     /// ```
     /// JSON:
     /// ```
-    /// # maker_web::run_test(|req, resp| {
+    /// # maker_web::docs_rs_helper::run_test(|req, resp| {
     /// use maker_web::{StatusCode, Version};
     ///
     /// // HTTP/0.9+ with structured data
@@ -606,7 +612,7 @@ impl Response {
     ///
     /// # Examples
     /// ```
-    /// # maker_web::run_test(|req, resp| {
+    /// # maker_web::docs_rs_helper::run_test(|req, resp| {
     /// use maker_web::{StatusCode, Version};
     /// use std::io::Write;
     ///
@@ -625,7 +631,7 @@ impl Response {
     /// ```
     /// Bytes data:  
     /// ```
-    /// # maker_web::run_test(|req, resp| {
+    /// # maker_web::docs_rs_helper::run_test(|req, resp| {
     /// use maker_web::{StatusCode, Version};
     ///
     /// // HTTP/0.9 with binary data
@@ -673,7 +679,7 @@ impl Response {
     ///
     /// # Examples
     /// ```
-    /// # maker_web::run_test(|req, resp| {
+    /// # maker_web::docs_rs_helper::run_test(|req, resp| {
     /// # let user_exists = true;
     /// use maker_web::{StatusCode, Version};
     ///
@@ -720,7 +726,7 @@ impl Response {
     ///
     /// # Examples
     /// ```
-    /// # maker_web::run_test(|req, resp| {
+    /// # maker_web::docs_rs_helper::run_test(|req, resp| {
     /// # let invalid_input = true;
     /// use maker_web::{StatusCode, Version};
     ///
@@ -737,7 +743,7 @@ impl Response {
     /// ```
     /// Success with custom data:
     /// ```
-    /// # maker_web::run_test(|req, resp| {
+    /// # maker_web::docs_rs_helper::run_test(|req, resp| {
     /// use maker_web::{StatusCode, Version};
     ///
     /// // Success response with structured data
@@ -795,7 +801,7 @@ pub mod write {
     ///
     /// With [WriteBuffer]:
     /// ```
-    /// # maker_web::run_test(|_, resp| {
+    /// # maker_web::docs_rs_helper::run_test(|_, resp| {
     /// use maker_web::StatusCode;
     ///
     /// resp.status(StatusCode::Ok)
@@ -808,7 +814,7 @@ pub mod write {
     /// ```
     /// With [std::io::Write]:
     /// ```
-    /// # maker_web::run_test(|_, resp| {
+    /// # maker_web::docs_rs_helper::run_test(|_, resp| {
     /// use maker_web::StatusCode;
     /// use std::io::Write;
     ///
@@ -830,7 +836,7 @@ pub mod write {
         ///
         /// # Examples
         /// ```
-        /// # maker_web::run_test(|_, resp| {
+        /// # maker_web::docs_rs_helper::run_test(|_, resp| {
         /// use maker_web::StatusCode;
         ///
         /// resp.status(StatusCode::Ok)

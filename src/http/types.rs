@@ -3,45 +3,7 @@
 //! Core HTTP protocol types and utilities
 
 use crate::{errors::ErrorKind, limits::ReqLimits};
-
-// TO LOWER CASE
-
-#[rustfmt::skip]
-const ASCII_TABLE: [u8; 256] = [
-    //   x0    x1    x2    x3    x4    x5    x6    x7    x8    x9    xA    xB    xC    xD    xE    xF
-    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, // 0x
-    0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, // 1x
-    0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x2F, // 2x
-    0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3A, 0x3B, 0x3C, 0x3D, 0x3E, 0x3F, // 3x
-    0x40, b'a', b'b', b'c', b'd', b'e', b'f', b'g', b'h', b'i', b'j', b'k', b'l', b'm', b'n', b'o', // 4x
-    b'p', b'q', b'r', b's', b't', b'u', b'v', b'w', b'x', b'y', b'z', 0x5B, 0x5C, 0x5D, 0x5E, 0x5F, // 5x
-    0x60, b'a', b'b', b'c', b'd', b'e', b'f', b'g', b'h', b'i', b'j', b'k', b'l', b'm', b'n', b'o', // 6x
-    b'p', b'q', b'r', b's', b't', b'u', b'v', b'w', b'x', b'y', b'z', 0x7B, 0x7C, 0x7D, 0x7E, 0x7F, // 7x
-    0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88, 0x89, 0x8A, 0x8B, 0x8C, 0x8D, 0x8E, 0x8F, // 8x
-    0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97, 0x98, 0x99, 0x9A, 0x9B, 0x9C, 0x9D, 0x9E, 0x9F, // 9x
-    0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7, 0xA8, 0xA9, 0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xAF, // Ax
-    0xB0, 0xB1, 0xB2, 0xB3, 0xB4, 0xB5, 0xB6, 0xB7, 0xB8, 0xB9, 0xBA, 0xBB, 0xBC, 0xBD, 0xBE, 0xBF, // Bx
-    0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8, 0xC9, 0xCA, 0xCB, 0xCC, 0xCD, 0xCE, 0xCF, // Cx
-    0xD0, 0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6, 0xD7, 0xD8, 0xD9, 0xDA, 0xDB, 0xDC, 0xDD, 0xDE, 0xDF, // Dx
-    0xE0, 0xE1, 0xE2, 0xE3, 0xE4, 0xE5, 0xE6, 0xE7, 0xE8, 0xE9, 0xEA, 0xEB, 0xEC, 0xED, 0xEE, 0xEF, // Ex
-    0xF0, 0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8, 0xF9, 0xFA, 0xFB, 0xFC, 0xFD, 0xFE, 0xFF, // Fx
-];
-
-#[inline(always)]
-pub(crate) fn to_lower_case(src: &mut [u8]) {
-    for byte in src.iter_mut() {
-        *byte = ASCII_TABLE[*byte as usize];
-    }
-}
-
-#[inline(always)]
-pub(crate) fn into_lower_case(src: &[u8], result: &mut [u8]) -> usize {
-    let len = src.len().min(result.len());
-    for i in 0..len {
-        result[i] = ASCII_TABLE[src[i] as usize];
-    }
-    len
-}
+use std::mem;
 
 #[inline(always)]
 pub(crate) fn slice_to_usize(bytes: &[u8]) -> Option<usize> {
@@ -75,41 +37,54 @@ pub(crate) fn slice_to_usize(bytes: &[u8]) -> Option<usize> {
 /// * `CONNECT` - disabled because it is no longer needed
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Method {
-    /// GET method - transfer a current representation of the target resource
+    /// `GET` method - transfer a current representation of the target resource
     /// [[RFC7231, Section 4.3.1](https://tools.ietf.org/html/rfc7231#section-4.3.1)]
     Get,
-    /// PUT method - replace all current representations of the target resource with the request payload
+    /// `PUT` method - replace all current representations of the target resource with the request payload
     /// [[RFC7231, Section 4.3.4](https://tools.ietf.org/html/rfc7231#section-4.3.4)]
     Put,
-    /// POST method - perform resource-specific processing on the request payload
+    /// `POST` method - perform resource-specific processing on the request payload
     /// [[RFC7231, Section 4.3.3](https://tools.ietf.org/html/rfc7231#section-4.3.3)]
     Post,
-    /// HEAD method - same as GET but without response body
+    /// `HEAD` method - same as GET but without response body
     /// [[RFC7231, Section 4.3.2](https://tools.ietf.org/html/rfc7231#section-4.3.2)]
     Head,
-    /// PATCH method - apply partial modifications to a resource
+    /// `PATCH` method - apply partial modifications to a resource
     /// [[RFC5789, Section 2](https://tools.ietf.org/html/rfc5789#section-2)]
     Patch,
-    /// DELETE method - remove all current representations of the target resource
+    /// `DELETE` method - remove all current representations of the target resource
     /// [[RFC7231, Section 4.3.5](https://tools.ietf.org/html/rfc7231#section-4.3.5)]
     Delete,
-    /// OPTIONS method - describe the communication options for the target resource
+    /// `OPTIONS` method - describe the communication options for the target resource
     /// [[RFC7231, Section 4.3.7](https://tools.ietf.org/html/rfc7231#section-4.3.7)]
     Options,
 }
 
 impl Method {
-    #[inline(always)]
-    pub(crate) fn from_bytes(src: &[u8]) -> Result<(Self, usize), ErrorKind> {
+    #[inline]
+    pub(crate) const fn from_bytes(src: &[u8]) -> Result<Self, ErrorKind> {
         match src {
-            [b'G', b'E', b'T', b' ', ..] => Ok((Method::Get, 4)),
-            [b'P', b'U', b'T', b' ', ..] => Ok((Method::Put, 4)),
-            [b'P', b'O', b'S', b'T', b' ', ..] => Ok((Method::Post, 5)),
-            [b'H', b'E', b'A', b'D', b' ', ..] => Ok((Method::Head, 5)),
-            [b'P', b'A', b'T', b'C', b'H', b' ', ..] => Ok((Method::Patch, 6)),
-            [b'D', b'E', b'L', b'E', b'T', b'E', b' ', ..] => Ok((Method::Delete, 7)),
-            [b'O', b'P', b'T', b'I', b'O', b'N', b'S', b' ', ..] => Ok((Method::Options, 8)),
+            b"GET" => Ok(Method::Get),
+            b"PUT" => Ok(Method::Put),
+            b"POST" => Ok(Method::Post),
+            b"HEAD" => Ok(Method::Head),
+            b"PATCH" => Ok(Method::Patch),
+            b"DELETE" => Ok(Method::Delete),
+            b"OPTIONS" => Ok(Method::Options),
             _ => Err(ErrorKind::InvalidMethod),
+        }
+    }
+
+    #[inline]
+    pub const fn as_str(&self) -> &str {
+        match self {
+            Method::Get => "GET",
+            Method::Put => "PUT",
+            Method::Post => "POST",
+            Method::Head => "HEAD",
+            Method::Patch => "PATCH",
+            Method::Delete => "DELETE",
+            Method::Options => "OPTIONS",
         }
     }
 }
@@ -139,12 +114,12 @@ pub enum Version {
 }
 
 impl Version {
-    #[inline(always)]
-    pub(crate) const fn from_bytes(src: &[u8]) -> Result<(Self, bool), ErrorKind> {
-        match src {
-            b"HTTP/1.1" => Ok((Self::Http11, true)),
-            b"HTTP/1.0" => Ok((Self::Http10, false)),
-            _ => Err(ErrorKind::UnsupportedVersion),
+    #[inline]
+    pub const fn as_str(&self) -> &str {
+        match self {
+            Version::Http11 => "HTTP/1.1",
+            Version::Http10 => "HTTP/1.0",
+            Version::Http09 => "HTTP/0.9+"
         }
     }
 }
@@ -188,6 +163,13 @@ macro_rules! set_status_codes {
             pub(crate) const fn as_u16_bytes(&self) -> &[u8] {
                 match self { $(
                     StatusCode::$name => concat!(" ", $num, " ").as_bytes(),
+                )+ }
+            }
+
+            #[inline]
+            pub const fn as_str(&self) -> &str {
+                match self { $(
+                    StatusCode::$name => concat!($num, " ", $str),
                 )+ }
             }
         }
@@ -337,67 +319,106 @@ set_status_codes! {
 /// - **Path**: Path without query string (e.g., `/api/users/123`)  
 /// - **Segments**: Path split by `/` (e.g., `["api", "users", "123"]`)
 /// - **Query**: Optional query string with parameters
+///
+/// # Note
+/// In HTTP/0.9+, the `/keep_alive` prefix is removed if present (applies to all methods).
+///
+/// Example:
+/// ```
+/// let url = "/keep_alive/api/users";
+///
+/// // Parsing...
+///
+/// // HTTP/1.x
+/// # maker_web::docs_rs_helper::example_url_http1x(url, |req| {
+/// assert_eq!(req.url().path_str(), "/keep_alive/api/users");
+/// # });
+/// #
+/// // HTTP/0.9+
+/// # maker_web::docs_rs_helper::example_url_http09(url, |req| {
+/// assert_eq!(req.url().path_str(), "/api/users");
+/// # });
+/// ```
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Url {
-    pub(crate) target: &'static [u8],
-    pub(crate) path: &'static [u8],
-    pub(crate) parts: Vec<&'static [u8]>,
-    pub(crate) query: Option<&'static [u8]>,
+    pub(crate) target: &'static str,
+    pub(crate) path: &'static str,
+    pub(crate) parts: Vec<&'static str>,
+    pub(crate) query: Option<&'static str>,
+    // If you make &str, you'll either have to use `std::str::from_utf8`, which
+    // will hurt performance, or `std::str::from_utf8_unchecked`, which requires 
+    // valid data (the public API can't provide it).
     pub(crate) query_parts: Vec<(&'static [u8], &'static [u8])>,
+    // For HTTP/0.9+ (ignoring prefix `/keep_alive`)
+    pub(crate) skip_first_segment: bool,
 }
 
 impl Url {
-    #[inline(always)]
+    #[inline]
     pub(crate) fn new(limits: &ReqLimits) -> Self {
         Self {
-            target: b"",
-            path: b"",
+            target: "",
+            path: "",
             parts: Vec::with_capacity(limits.url_parts),
             query: None,
             query_parts: Vec::with_capacity(limits.url_query_parts),
+            skip_first_segment: false,
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub(crate) fn clear(&mut self) {
-        self.target = b"";
-        self.path = b"";
+        self.target = "";
+        self.path = "";
         self.parts.clear();
         self.query = None;
         self.query_parts.clear();
+        self.skip_first_segment = false;
     }
 }
 
-// Public API
+/// Methods for working with URL as slice string
 impl Url {
-    /// Returns the raw request target as bytes.
-    ///
-    /// The target is the full path and query string from the request line.
+    /// Returns the raw request target as string slice.
     ///
     /// # Examples
+    /// ```
+    /// let url = "/api/users/123?sort=name&debug";
     ///
-    /// For path `/api/users/123?sort=name&debug`:
-    /// ```text
-    /// /api/users/123?sort=name&debug
+    /// // Parsing...
+    ///
+    /// # maker_web::docs_rs_helper::example_url_http1x(url, |req| {
+    /// assert_eq!(req.url().target_str(), "/api/users/123?sort=name&debug");
+    /// # });
+    /// #
+    /// # maker_web::docs_rs_helper::example_url_http09(url, |req| {
+    /// # assert_eq!(req.url().target_str(), "/api/users/123?sort=name&debug");
+    /// # });
     /// ```
     #[inline(always)]
-    pub const fn target(&self) -> &[u8] {
-        self.target
+    pub fn target_str(&self) -> &str {
+        &self.target[11 * self.skip_first_segment as usize..]
     }
 
-    /// Returns the path component of the URL.
-    ///
-    /// This is the target without the query string.
+    /// Returns the path component of the URL without the query string as bytes.
     ///
     /// # Examples
+    /// ```
+    /// let url = "/api/users/123?sort=name&debug";
     ///
-    /// For path `/api/users/123?sort=name&debug`:
-    /// ```text
-    /// /api/users/123
+    /// // Parsing...
+    ///
+    /// # maker_web::docs_rs_helper::example_url_http1x(url, |req| {
+    /// assert_eq!(req.url().path_str(), "/api/users/123");
+    /// # });
+    /// #
+    /// # maker_web::docs_rs_helper::example_url_http09(url, |req| {
+    /// # assert_eq!(req.url().path_str(), "/api/users/123");
+    /// # });
     /// ```
     #[inline(always)]
-    pub const fn path(&self) -> &[u8] {
-        self.path
+    pub fn path_str(&self) -> &str {
+        &self.path[11 * self.skip_first_segment as usize..]
     }
 
     /// Returns the path segment at the specified index.
@@ -406,46 +427,361 @@ impl Url {
     /// Index 0 is the first segment after the initial `/`.
     ///
     /// # Examples
+    /// ```
+    /// let url = "/api/users/123?sort=name&debug";
     ///
-    /// For path `/api/users/123?sort=name&debug`:
-    /// - index `0`: `Some(b"api")`
-    /// - index `1`: `Some(b"users")`
-    /// - index `2`: `Some(b"123")`
-    /// - index `3`: `None`
-    #[inline(always)]
-    pub fn path_segment(&self, index: usize) -> Option<&[u8]> {
-        self.parts.get(index).copied()
-    }
-
-    /// Returns all path segments as a slice.
+    /// // Parsing...
     ///
-    /// Segments are split by `/` characters and do not include
-    /// the leading or trailing slashes.
-    ///
-    /// # Examples
-    ///
-    /// For path `/api/users/123?sort=name&debug`:
-    /// ```text
-    /// [b"api", b"users", b"123"]
+    /// # maker_web::docs_rs_helper::example_url_http1x(url, |req| {
+    /// assert_eq!(req.url().path_segment_str(0), Some("api"));
+    /// assert_eq!(req.url().path_segment_str(1), Some("users"));
+    /// assert_eq!(req.url().path_segment_str(2), Some("123"));
+    /// assert_eq!(req.url().path_segment_str(3), None);
+    /// # });
+    /// #
+    /// # maker_web::docs_rs_helper::example_url_http09(url, |req| {
+    /// # assert_eq!(req.url().path_segment_str(0), Some("api"));
+    /// # assert_eq!(req.url().path_segment_str(1), Some("users"));
+    /// # assert_eq!(req.url().path_segment_str(2), Some("123"));
+    /// # assert_eq!(req.url().path_segment_str(3), None);
+    /// # });
     /// ```
     #[inline(always)]
-    pub fn path_segments(&self) -> &[&[u8]] {
-        self.parts.as_slice()
+    pub fn path_segment_str(&self, index: usize) -> Option<&str> {
+        self.parts
+            .get(index + self.skip_first_segment as usize)
+            .copied()
+    }
+
+    /// Returns all path segments as slice
+    ///
+    /// Segments are split by `/` characters and do not include the leading or
+    /// trailing slashes.
+    ///
+    /// # Examples
+    /// ```
+    /// let url = "/api/users/123?sort=name&debug";
+    ///
+    /// // Parsing...
+    ///
+    /// # maker_web::docs_rs_helper::example_url_http1x(url, |req| {
+    /// assert_eq!(req.url().path_segments_str(), ["api", "users", "123"]);
+    /// # });
+    /// #
+    /// # maker_web::docs_rs_helper::example_url_http09(url, |req| {
+    /// # assert_eq!(req.url().path_segments_str(), ["api", "users", "123"]);
+    /// # });
+    /// ```
+    #[inline(always)]
+    pub fn path_segments_str(&self) -> &[&str] {
+        &self.parts[self.skip_first_segment as usize..]
     }
 
     /// Checks if the path matches the given pattern.
     ///
-    /// The pattern should be an array of byte slices representing
-    /// the expected path segments.
+    /// # Examples
+    /// ```
+    /// let url = "/api/users/123?sort=name&debug";
+    ///
+    /// // Parsing...
+    ///
+    /// # maker_web::docs_rs_helper::example_url_http1x(url, |req| {
+    /// assert!(!req.url().matches_str(&["api"]));
+    /// assert!(req.url().matches_str(&["api", "users", "123"]));
+    /// assert!(!req.url().matches_str(&["api", "users"]));
+    /// assert!(!req.url().matches_str(&["api", "users", "123", "name"]));
+    /// assert!(!req.url().matches_str(&["users", "123"]));
+    /// # });
+    /// #
+    /// # maker_web::docs_rs_helper::example_url_http09(url, |req| {
+    /// # assert!(!req.url().matches_str(&["api"]));
+    /// # assert!(req.url().matches_str(&["api", "users", "123"]));
+    /// # assert!(!req.url().matches_str(&["api", "users"]));
+    /// # assert!(!req.url().matches_str(&["api", "users", "123", "name"]));
+    /// # assert!(!req.url().matches_str(&["users", "123"]));
+    /// # });
+    /// ```
+    #[inline(always)]
+    pub fn matches_str(&self, pattern: &[&str]) -> bool {
+        self.path_segments_str() == pattern
+    }
+
+    /// Checks if the path starts with the given pattern.
+    ///
+    /// Useful for route prefix matching.
     ///
     /// # Examples
+    /// ```
+    /// let url = "/api/users/123?sort=name&debug";
     ///
-    /// For path `/api/users/123?sort=name&debug`:
-    /// - pattern `&[b"api"]`: `false`
-    /// - pattern `&[b"api", b"users", b"123"]`: `true`
-    /// - pattern `&[b"api", b"users"]`: `false`
-    /// - pattern `&[b"api", b"users", b"123", b"name"]`: `false`
-    /// - pattern `&[b"users", b"123"]`: `false`
+    /// // Parsing...
+    ///
+    /// # maker_web::docs_rs_helper::example_url_http1x(url, |req| {
+    /// assert!(req.url().starts_with_str(&["api"]));
+    /// assert!(req.url().starts_with_str(&["api", "users", "123"]));
+    /// assert!(req.url().starts_with_str(&["api", "users"]));
+    /// assert!(!req.url().starts_with_str(&["api", "users", "123", "name"]));
+    /// assert!(!req.url().starts_with_str(&["users", "123"]));
+    /// # });
+    /// #
+    /// # maker_web::docs_rs_helper::example_url_http09(url, |req| {
+    /// # assert!(req.url().starts_with_str(&["api"]));
+    /// # assert!(req.url().starts_with_str(&["api", "users", "123"]));
+    /// # assert!(req.url().starts_with_str(&["api", "users"]));
+    /// # assert!(!req.url().starts_with_str(&["api", "users", "123", "name"]));
+    /// # assert!(!req.url().starts_with_str(&["users", "123"]));
+    /// # });
+    /// ```
+    #[inline(always)]
+    pub fn starts_with_str(&self, pattern: &[&str]) -> bool {
+        self.path_segments_str().starts_with(pattern)
+    }
+
+    /// Checks if the path ends with the given pattern.
+    ///
+    /// Useful for file extension matching.
+    ///
+    /// # Examples
+    /// ```
+    /// let url = "/api/users/123?sort=name&debug";
+    ///
+    /// // Parsing...
+    ///
+    /// # maker_web::docs_rs_helper::example_url_http1x(url, |req| {
+    /// assert!(!req.url().ends_with_str(&["api"]));
+    /// assert!(req.url().ends_with_str(&["api", "users", "123"]));
+    /// assert!(!req.url().ends_with_str(&["api", "users"]));
+    /// assert!(!req.url().ends_with_str(&["api", "users", "123", "name"]));
+    /// assert!(req.url().ends_with_str(&["users", "123"]));
+    /// # });
+    /// #
+    /// # maker_web::docs_rs_helper::example_url_http09(url, |req| {
+    /// # assert!(!req.url().ends_with_str(&["api"]));
+    /// # assert!(req.url().ends_with_str(&["api", "users", "123"]));
+    /// # assert!(!req.url().ends_with_str(&["api", "users"]));
+    /// # assert!(!req.url().ends_with_str(&["api", "users", "123", "name"]));
+    /// # assert!(req.url().ends_with_str(&["users", "123"]));
+    /// # });
+    /// ```
+    #[inline(always)]
+    pub fn ends_with_str(&self, pattern: &[&str]) -> bool {
+        self.path_segments_str().ends_with(pattern)
+    }
+
+    /// Returns the full query string including the leading `?`.
+    ///
+    /// Returns `None` if no query string is present.
+    ///
+    /// # Examples
+    /// Request without query:
+    /// ```
+    /// let url = "/api/users/123";
+    ///
+    /// // Parsing...
+    ///
+    /// # maker_web::docs_rs_helper::example_url_http1x(url, |req| {
+    /// assert_eq!(req.url().query_full_str(), None);
+    /// # });
+    /// #
+    /// # maker_web::docs_rs_helper::example_url_http09(url, |req| {
+    /// # assert_eq!(req.url().query_full_str(), None);
+    /// # });
+    /// ```
+    /// Request with query:
+    /// ```
+    /// let url = "/api/users/123?sort=name&debug";
+    ///
+    /// // Parsing...
+    ///
+    /// # maker_web::docs_rs_helper::example_url_http1x(url, |req| {
+    /// assert_eq!(req.url().query_full_str(), Some("?sort=name&debug"));
+    /// # });
+    /// #
+    /// # maker_web::docs_rs_helper::example_url_http09(url, |req| {
+    /// # assert_eq!(req.url().query_full_str(), Some("?sort=name&debug"));
+    /// # });
+    /// ```
+    #[inline(always)]
+    pub fn query_full_str(&self) -> Option<&str> {
+        self.query
+    }
+
+    /// Returns the value for the specified query parameter key.
+    ///
+    /// Performs case-sensitive lookup. Returns the first value
+    /// if multiple parameters with the same key exist.
+    ///
+    /// # Examples
+    /// ```
+    /// let url = "/api/users/123?sort=name&debug";
+    ///
+    /// // Parsing...
+    ///
+    /// # maker_web::docs_rs_helper::example_url_http1x(url, |req| {
+    /// assert_eq!(req.url().query_str("sort"), Some("name"));
+    /// assert_eq!(req.url().query_str("debug"), Some(""));
+    /// assert_eq!(req.url().query_str("name"), None);
+    /// # });
+    /// #
+    /// # maker_web::docs_rs_helper::example_url_http09(url, |req| {
+    /// # assert_eq!(req.url().query_str("sort"), Some("name"));
+    /// # assert_eq!(req.url().query_str("debug"), Some(""));
+    /// # assert_eq!(req.url().query_str("name"), None);
+    /// # });
+    /// ```
+    #[inline(always)]
+    pub fn query_str(&self, key: &str) -> Option<&str> {
+        self.query_parts
+            .iter()
+            .find(|&&(k, _)| k == key.as_bytes())
+            .map(|&(_, v)| unsafe {
+                // SAFETY: This method is only available after the request
+                // (except the body) has been validated with `simdutf8`, which
+                // ensures that the data is `UTF-8`.
+                std::str::from_utf8_unchecked(v)
+            })
+    }
+}
+
+/// Methods for working with URL as bytes
+impl Url {
+    /// Returns the raw request target
+    ///
+    /// # Examples
+    /// ```
+    /// let url = "/api/users/123?sort=name&debug";
+    ///
+    /// // Parsing...
+    ///
+    /// # maker_web::docs_rs_helper::example_url_http1x(url, |req| {
+    /// assert_eq!(req.url().target(), b"/api/users/123?sort=name&debug");
+    /// # });
+    /// #
+    /// # maker_web::docs_rs_helper::example_url_http09(url, |req| {
+    /// # assert_eq!(req.url().target(), b"/api/users/123?sort=name&debug");
+    /// # });
+    /// ```
+    #[inline(always)]
+    pub fn target(&self) -> &[u8] {
+        self.target_str().as_bytes()
+    }
+
+    /// Returns the path component of the URL without the query string
+    ///
+    /// # Examples
+    /// ```
+    /// let url = "/api/users/123?sort=name&debug";
+    ///
+    /// // Parsing...
+    ///
+    /// # maker_web::docs_rs_helper::example_url_http1x(url, |req| {
+    /// assert_eq!(req.url().path(), b"/api/users/123");
+    /// # });
+    /// #
+    /// # maker_web::docs_rs_helper::example_url_http09(url, |req| {
+    /// # assert_eq!(req.url().path(), b"/api/users/123");
+    /// # });
+    /// ```
+    #[inline(always)]
+    pub fn path(&self) -> &[u8] {
+        self.path_str().as_bytes()
+    }
+
+    /// Returns the path segment at the specified index
+    ///
+    /// Path segments are the parts between `/` characters.
+    /// Index 0 is the first segment after the initial `/`.
+    ///
+    /// # Examples
+    /// ```
+    /// let url = "/api/users/123?sort=name&debug";
+    ///
+    /// // Parsing...
+    ///
+    /// # maker_web::docs_rs_helper::example_url_http1x(url, |req| {
+    /// assert_eq!(req.url().path_segment(0), Some("api".as_bytes()));
+    /// assert_eq!(req.url().path_segment(1), Some("users".as_bytes()));
+    /// assert_eq!(req.url().path_segment(2), Some("123".as_bytes()));
+    /// assert_eq!(req.url().path_segment(3), None);
+    /// # });
+    /// #
+    /// # maker_web::docs_rs_helper::example_url_http09(url, |req| {
+    /// # assert_eq!(req.url().path_segment(0), Some("api".as_bytes()));
+    /// # assert_eq!(req.url().path_segment(1), Some("users".as_bytes()));
+    /// # assert_eq!(req.url().path_segment(2), Some("123".as_bytes()));
+    /// # assert_eq!(req.url().path_segment(3), None);
+    /// # });
+    /// ```
+    #[inline(always)]
+    pub fn path_segment(&self, index: usize) -> Option<&[u8]> {
+        self.path_segment_str(index).map(|v| v.as_bytes())
+    }
+
+    /// Returns all path segments as a slice.
+    ///
+    /// Segments are split by `/` characters and do not include the leading or
+    /// trailing slashes.
+    ///
+    /// # Examples
+    /// ```
+    /// let url = "/api/users/123?sort=name&debug";
+    ///
+    /// // Parsing...
+    ///
+    /// # maker_web::docs_rs_helper::example_url_http1x(url, |req| {
+    /// assert_eq!(
+    ///     req.url().path_segments(),
+    ///     ["api".as_bytes(), "users".as_bytes(), "123".as_bytes()]
+    /// );
+    /// # });
+    /// #
+    /// # maker_web::docs_rs_helper::example_url_http09(url, |req| {
+    /// # assert_eq!(
+    /// #     req.url().path_segments(),
+    /// #     ["api".as_bytes(), "users".as_bytes(), "123".as_bytes()]
+    /// # );
+    /// # });
+    /// ```
+    #[inline(always)]
+    pub fn path_segments(&self) -> &[&[u8]] {
+        const _: () = assert!(mem::size_of::<&str>() == mem::size_of::<&[u8]>());
+        const _: () = assert!(mem::align_of::<&str>() == mem::align_of::<&[u8]>());
+
+        const _: () = assert!(mem::size_of::<&[&str]>() == mem::size_of::<&[&[u8]]>());
+        const _: () = assert!(mem::align_of::<&[&str]>() == mem::align_of::<&[&[u8]]>());
+
+        let str_slice: &[&str] = &self.parts[self.skip_first_segment as usize..];
+
+        // SAFETY: Safe because &str and &[u8] have identical memory layout
+        // (both are fat pointers: data pointer + length). All strings are
+        // guaranteed to be valid UTF-8 from parsing.
+        unsafe { mem::transmute::<&[&str], &[&[u8]]>(str_slice) }
+    }
+
+    /// Checks if the path matches the given pattern.
+    ///
+    /// # Examples
+    /// ```
+    /// let url = "/api/users/123?sort=name&debug";
+    ///
+    /// // Parsing...
+    ///
+    /// # maker_web::docs_rs_helper::example_url_http1x(url, |req| {
+    /// assert!(!req.url().matches(&[b"api"]));
+    /// assert!(req.url().matches(&[b"api", b"users", b"123"]));
+    /// assert!(!req.url().matches(&[b"api", b"users"]));
+    /// assert!(!req.url().matches(&[b"api", b"users", b"123", b"name"]));
+    /// assert!(!req.url().matches(&[b"users", b"123"]));
+    /// # });
+    /// #
+    /// # maker_web::docs_rs_helper::example_url_http09(url, |req| {
+    /// # assert!(!req.url().matches(&[b"api"]));
+    /// # assert!(req.url().matches(&[b"api", b"users", b"123"]));
+    /// # assert!(!req.url().matches(&[b"api", b"users"]));
+    /// # assert!(!req.url().matches(&[b"api", b"users", b"123", b"name"]));
+    /// # assert!(!req.url().matches(&[b"users", b"123"]));
+    /// # });
+    /// ```
     #[inline(always)]
     pub fn matches(&self, pattern: &[&[u8]]) -> bool {
         self.path_segments() == pattern
@@ -456,13 +792,27 @@ impl Url {
     /// Useful for route prefix matching.
     ///
     /// # Examples
+    /// ```
+    /// let url = "/api/users/123?sort=name&debug";
     ///
-    /// For path `/api/users/123?sort=name&debug`:
-    /// - pattern `&[b"api"]`: `true`
-    /// - pattern `&[b"api", b"users", b"123"]`: `true`
-    /// - pattern `&[b"api", b"users"]`: `true`
-    /// - pattern `&[b"api", b"users", b"123", b"name"]`: `false`
-    /// - pattern `&[b"users", b"123"]`: `false`
+    /// // Parsing...
+    ///
+    /// # maker_web::docs_rs_helper::example_url_http1x(url, |req| {
+    /// assert!(req.url().starts_with(&[b"api"]));
+    /// assert!(req.url().starts_with(&[b"api", b"users", b"123"]));
+    /// assert!(req.url().starts_with(&[b"api", b"users"]));
+    /// assert!(!req.url().starts_with(&[b"api", b"users", b"123", b"name"]));
+    /// assert!(!req.url().starts_with(&[b"users", b"123"]));
+    /// # });
+    /// #
+    /// # maker_web::docs_rs_helper::example_url_http09(url, |req| {
+    /// # assert!(req.url().starts_with(&[b"api"]));
+    /// # assert!(req.url().starts_with(&[b"api", b"users", b"123"]));
+    /// # assert!(req.url().starts_with(&[b"api", b"users"]));
+    /// # assert!(!req.url().starts_with(&[b"api", b"users", b"123", b"name"]));
+    /// # assert!(!req.url().starts_with(&[b"users", b"123"]));
+    /// # });
+    /// ```
     #[inline(always)]
     pub fn starts_with(&self, pattern: &[&[u8]]) -> bool {
         self.path_segments().starts_with(pattern)
@@ -473,13 +823,27 @@ impl Url {
     /// Useful for file extension matching.
     ///
     /// # Examples
+    /// ```
+    /// let url = "/api/users/123?sort=name&debug";
     ///
-    /// For path `/api/users/123?sort=name&debug`:
-    /// - pattern `&[b"api"]`: `false`
-    /// - pattern `&[b"api", b"users", b"123"]`: `true`
-    /// - pattern `&[b"api", b"users"]`: `false`
-    /// - pattern `&[b"api", b"users", b"123", b"name"]`: `false`
-    /// - pattern `&[b"users", b"123"]`: `true`
+    /// // Parsing...
+    ///
+    /// # maker_web::docs_rs_helper::example_url_http1x(url, |req| {
+    /// assert!(!req.url().ends_with(&[b"api"]));
+    /// assert!(req.url().ends_with(&[b"api", b"users", b"123"]));
+    /// assert!(!req.url().ends_with(&[b"api", b"users"]));
+    /// assert!(!req.url().ends_with(&[b"api", b"users", b"123", b"name"]));
+    /// assert!(req.url().ends_with(&[b"users", b"123"]));
+    /// # });
+    /// #
+    /// # maker_web::docs_rs_helper::example_url_http09(url, |req| {
+    /// # assert!(!req.url().ends_with(&[b"api"]));
+    /// # assert!(req.url().ends_with(&[b"api", b"users", b"123"]));
+    /// # assert!(!req.url().ends_with(&[b"api", b"users"]));
+    /// # assert!(!req.url().ends_with(&[b"api", b"users", b"123", b"name"]));
+    /// # assert!(req.url().ends_with(&[b"users", b"123"]));
+    /// # });
+    /// ```
     #[inline(always)]
     pub fn ends_with(&self, pattern: &[&[u8]]) -> bool {
         self.path_segments().ends_with(pattern)
@@ -490,14 +854,22 @@ impl Url {
     /// Returns `None` if no query string is present.
     ///
     /// # Examples
+    /// ```
+    /// let url = "/api/users/123?sort=name&debug";
     ///
-    /// For path `/api/users/123?sort=name&debug`:
-    /// ```text
-    /// ?sort=name&debug
+    /// // Parsing...
+    ///
+    /// # maker_web::docs_rs_helper::example_url_http1x(url, |req| {
+    /// assert_eq!(req.url().query_full(), Some("?sort=name&debug".as_bytes()));
+    /// # });
+    /// #
+    /// # maker_web::docs_rs_helper::example_url_http09(url, |req| {
+    /// # assert_eq!(req.url().query_full(), Some("?sort=name&debug".as_bytes()));
+    /// # });
     /// ```
     #[inline(always)]
-    pub const fn query_full(&self) -> Option<&[u8]> {
-        self.query
+    pub fn query_full(&self) -> Option<&[u8]> {
+        self.query.map(|value| value.as_bytes())
     }
 
     /// Returns the value for the specified query parameter key.
@@ -505,16 +877,24 @@ impl Url {
     /// Performs case-sensitive lookup. Returns the first value
     /// if multiple parameters with the same key exist.
     ///
-    /// # Arguments
-    ///
-    /// - `key`: Parameter name to look up (e.g., `b"sort"`)
-    ///
     /// # Examples
+    /// ```
+    /// let url = "/api/users/123?sort=name&debug";
     ///
-    /// For path `/api/users/123?sort=name&debug`:
-    /// - at the key `b"sort"`: `Some(b"name")`
-    /// - at the key `b"debug"`: `Some(b"")`
-    /// - at the key `b"something"`: `None`
+    /// // Parsing...
+    ///
+    /// # maker_web::docs_rs_helper::example_url_http1x(url, |req| {
+    /// assert_eq!(req.url().query(b"sort"), Some("name".as_bytes()));
+    /// assert_eq!(req.url().query(b"debug"), Some("".as_bytes()));
+    /// assert_eq!(req.url().query(b"name"), None);
+    /// # });
+    /// #
+    /// # maker_web::docs_rs_helper::example_url_http09(url, |req| {
+    /// # assert_eq!(req.url().query(b"sort"), Some("name".as_bytes()));
+    /// # assert_eq!(req.url().query(b"debug"), Some("".as_bytes()));
+    /// # assert_eq!(req.url().query(b"name"), None);
+    /// # });
+    /// ```
     #[inline(always)]
     pub fn query(&self, key: &[u8]) -> Option<&[u8]> {
         self.query_parts
@@ -524,49 +904,10 @@ impl Url {
     }
 }
 
-// HEADER MAP
-
-#[derive(Debug, Clone, PartialEq, Default)]
-pub(crate) struct HeaderMap {
-    pub(crate) headers: Vec<Header>,
-    pub(crate) content_length: Option<usize>,
-}
-
-impl HeaderMap {
-    #[inline(always)]
-    pub(crate) fn new(size_vec: usize) -> Self {
-        Self {
-            headers: Vec::with_capacity(size_vec),
-            content_length: None,
-        }
-    }
-
-    #[inline(always)]
-    pub(crate) fn reset(&mut self) {
-        self.headers.clear();
-        self.content_length = None;
-    }
-
-    #[inline(always)]
-    pub(crate) fn get(&self, name: &[u8]) -> Option<&[u8]> {
-        self.headers
-            .iter()
-            .find(|h| h.name.eq_ignore_ascii_case(name))
-            .map(|h| h.value)
-    }
-}
-
 // HEADER
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub(crate) struct Header {
-    pub(crate) name: &'static [u8],
-    pub(crate) value: &'static [u8],
-}
-
-impl Header {
-    #[inline(always)]
-    pub const fn new(name: &'static [u8], value: &'static [u8]) -> Self {
-        Header { name, value }
-    }
+    pub(crate) name: &'static str,
+    pub(crate) value: &'static str,
 }
