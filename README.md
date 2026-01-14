@@ -1,6 +1,6 @@
 <div align="center">
   <h1>maker_web</h1>
-  <h3>High-performance, zero-allocation HTTP server for microservices</h3>
+  <h3>Security-first, high-performance, zero-allocation HTTP server for microservices</h3>
 </div>
 
 [![Downloads](https://img.shields.io/crates/d/maker_web)](https://crates.io/crates/maker_web)
@@ -69,7 +69,7 @@ use tokio::net::TcpListener;
 
 struct MyHandler;
 
-impl Handler<()> for MyHandler {
+impl Handler for MyHandler {
     async fn handle(&self, _: &mut (), req: &Request, resp: &mut Response) -> Handled {
         match req.url().path_segments_str() {
             ["api", user, "name"] => {

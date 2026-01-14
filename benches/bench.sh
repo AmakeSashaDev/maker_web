@@ -16,20 +16,22 @@ BROWSER_HEADERS='
 -H "DNT: 1"
 '
 
-TARGET_URL="http://localhost:8080"
-OUTPUT_FILE="../result/wrk_$1.txt"
+TARGET_URL="http://localhost:8080/"
+OUTPUT_FILE="./result/wrk_$1.txt"
 
 touch $OUTPUT_FILE
 
-THREADS_LIST=(1 2 3 4 8)
-CONNECTIONS_LIST=(100 1000 5000 10000 15000 20000)
+THREADS_LIST=(1 2 3 4)
+CONNECTIONS_LIST=(10 100 1000 2500 5000)
 DURATION="30s"
+
+ulimit -n 65535
 
 echo "==========================================" > "$OUTPUT_FILE"
 echo "           Benchmarks server" >> "$OUTPUT_FILE"
 echo "==========================================" >> "$OUTPUT_FILE"
 echo "Target server: $TARGET_URL" >> "$OUTPUT_FILE"
-echo "Test machine: $(hostname) | $(uname -s -r -m) (Live USB)" >> "$OUTPUT_FILE"
+echo "Test machine: $(hostname) | $(uname -s -r -m)" >> "$OUTPUT_FILE"
 echo "CPU: $(grep -m1 "model name" /proc/cpuinfo | cut -d: -f2 | sed 's/^[ \t]*//;s/[ \t]*$//')" >> "$OUTPUT_FILE"
 echo "Memory: $(free -h | awk '/^Mem:/ {print $2}') RAM" >> "$OUTPUT_FILE"
 echo "==========================================" >> "$OUTPUT_FILE"

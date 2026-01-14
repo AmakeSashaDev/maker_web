@@ -447,6 +447,8 @@ code {
     background: #701a75; color: #f0abfc;
 }
 
+
+
 [data-theme="light"] [data-box-type="support"] .support-link:nth-child(1) .support-icon {
     background: #ffedd5; color: #ea580c;
 }
@@ -466,6 +468,21 @@ code {
 }
 [data-theme="dark"] [data-box-type="support"] .support-link:nth-child(3) .support-icon {
     background: #831843; color: #f9a8d4;
+}
+
+
+
+[data-box-type="links"] .support-link:nth-child(1) .support-icon {
+    background: #FFFFFF; color: #FFFFFF;
+}
+[data-box-type="links"] .support-link:nth-child(2) .support-icon {
+    background: #FFFFFF; color: #FFFFFF;
+}
+[data-box-type="links"] .support-link:nth-child(3) .support-icon {
+    background: #FFFFFF; color: #FFFFFF;
+}
+[data-box-type="links"] .support-link:nth-child(4) .support-icon {
+    background: #FFFFFF; color: #FFFFFF;
 }
 
 .footer-card {
@@ -907,4 +924,10 @@ code {
 
 .close-button:active {
     transform: translateY(0);
+}
+
+.support-icon-img {
+    width: 1.5em;
+    height: 1.5em;
+    vertical-align: middle;
 }

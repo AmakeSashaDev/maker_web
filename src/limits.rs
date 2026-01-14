@@ -692,6 +692,8 @@ pub struct RespLimits {
     /// Initial buffer capacity allocated for responses (default: `1024 B`)
     pub default_capacity: usize,
     /// Maximum allowed buffer capacity for responses (default: `8192 B`)
+    //
+    // Note: If the response exceeds `max_capacity * 2`, it may be sent in 1 or more `syscall`
     pub max_capacity: usize,
 
     #[doc(hidden)]

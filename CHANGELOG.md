@@ -7,17 +7,17 @@
 ### Added
 
 - Support for all methods for `HTTP/0.9+`
-- `New error for the client`:
+- New error for the client:
   - `DoubleSlash` - If there are 2 or more consecutive slashes in the URL
   - `InvalidEncoding` - If the request (not including the body) is not `UTF-8`
 - New limits:
-  - `ReqLimits::url_query_size` - Maximum query string length
+  - `ReqLimits::url_query_size` - Maximum query string lengthbefore closing connection
 - Enhanced `Request` documentation and new methods:
   - `Input data requirements` section in `Request` struct documentation
+  - `Request::server_addr` - server socket address
   - `Request::client_addr` - client socket address
   - `Request::header_str` - case-insensitive header lookup returning `&str`
   - `Request::is_keep_alive` connection keep-alive status
-  - `Request::server_addr` - server socket address
 - Utilities with the `_str` prefix for working with parts of the struct `Url`:
   - `Url::target_str()` - get full URL target with query
   - `Url::path_str()` - get only path component

@@ -1,0 +1,28 @@
+[package]
+name = "bench_rocket"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rocket = "0.5.1"
+tokio = { version = "1", features = ["full"] }
+# For rustc 1.75
+indexmap = "=2.11.3"
+time = "=0.3.41"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = 'abort'
+strip = true
+incremental = false
+debug = false
+debug-assertions = false
+overflow-checks = false
+
+[[bin]]
+name = "bench_rocket"
+path = "main.rs"

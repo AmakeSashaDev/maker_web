@@ -55,7 +55,7 @@
                     <div class="logo">🦀</div>
                     <div class="title-slogan">
                         <h1>maker_web</h1>
-                        <p class="slogan">High-performance, zero-allocation HTTP server for microservices</p>
+                        <p class="slogan">Security-first, high-performance, zero-allocation HTTP server for microservices</p>
                     </div>
                 </div>
                 
@@ -160,6 +160,56 @@
                         Right now, these actions would be the best support for me 😊
                     </div>
                 </div>
+
+            
+                <div class="support-box" data-box-type="links">
+                    <div class="box-header">
+                        <span class="box-icon">🔗</span>
+                        <h3>Links</h3>
+                    </div>
+                    
+                    <div class="box-content">
+                        <a href="https://github.com/AmakeSashaDev/maker_web" class="support-link" target="_blank" rel="noopener noreferrer">
+                            <div class="support-icon">
+                                <img src="ico/github.ico" class="support-icon-img">
+                            </div>
+                            <div class="support-text">
+                                <strong>GitHub</strong>
+                                <span>Source code repository</span>
+                            </div>
+                        </a>
+
+                        <a href="https://gitcode.com/AmakeSashaDev/maker_web" class="support-link" target="_blank" rel="noopener noreferrer">
+                            <div class="support-icon">
+                                <img src="ico/gitcode.png" class="support-icon-img">
+                            </div>
+                            <div class="support-text">
+                                <strong>GitCode</strong>
+                                <span>中文镜像🇨🇳</span>
+                            </div>
+                        </a>
+
+                        <a href="https://docs.rs/maker_web/latest/maker_web" class="support-link" target="_blank" rel="noopener noreferrer">
+                            <div class="support-icon">
+                                <img src="ico/docs_rs.svg" class="support-icon-img" style="width: 2.1em; height: 2.1em;">
+                            </div>
+                            <div class="support-text">
+                                <strong>docs.rs</strong>
+                                <span>Project documentation</span>
+                            </div>
+                        </a>
+
+                        <a href="https://crates.io/crates/maker_web" class="support-link" target="_blank" rel="noopener noreferrer">
+                            <div class="support-icon">
+                                <img src="ico/crates_io.ico" class="support-icon-img">
+                            </div>
+                            <div class="support-text">
+                                <strong>crates.io</strong>
+                                <span>Project in the crate registry</span>
+                            </div>
+                        </a>
+                    </div>
+                </div>
             </div>
 
             <div class="card left-card">
@@ -208,7 +258,7 @@ use tokio::net::TcpListener;
 
 struct HelloWorld;
 
-impl Handler<()> for HelloWorld {
+impl Handler for HelloWorld {
     async fn handle(&self, _: &mut (), _: &Request, resp: &mut Response) -> Handled {
         resp.status(StatusCode::Ok)
             .header("Content-Type", "text/plain")
@@ -240,16 +290,16 @@ use tokio::net::TcpListener;
 
 struct MyHandler;
 
-impl Handler<()> for MyHandler {
+impl Handler for MyHandler {
     async fn handle(&self, _: &mut (), req: &Request, resp: &mut Response) -> Handled {
-        match req.url().path_segments() {
-            [b"api", user, b"name"] => {
+        match req.url().path_segments_str() {
+            ["api", user, "name"] => {
                 resp.status(StatusCode::Ok).body(user)
             }
-            [b"api", user, b"name", b"len"] => {
+            ["api", user, "name", "len"] => {
                 resp.status(StatusCode::Ok).body(user.len())
             }
-            [b"api", b"echo", text] => {
+            ["api", "echo", text] => {
                 resp.status(StatusCode::Ok).body(text)
             }
             _ => resp.status(StatusCode::NotFound).body("qwe"),

@@ -11,9 +11,12 @@ use std::{
     io, mem,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     str,
-    time::Duration,
 };
-use tokio::{io::AsyncReadExt, net::TcpStream, time::sleep};
+use tokio::{
+    io::AsyncReadExt,
+    net::TcpStream,
+    time::{sleep, Duration},
+};
 
 /// High-performance HTTP request representation.
 ///
@@ -694,8 +697,6 @@ impl Parser {
         time: Duration,
     ) -> Result<usize, io::Error> {
         tokio::select! {
-            biased;
-
             read_result = stream.read(&mut self.buffer) => {
                 let n = read_result?;
                 self.len = n;

@@ -3,7 +3,7 @@ use tokio::net::TcpListener;
 
 struct HelloWorld;
 
-impl Handler<()> for HelloWorld {
+impl Handler for HelloWorld {
     async fn handle(&self, _: &mut (), _: &Request, resp: &mut Response) -> Handled {
         resp.status(StatusCode::Ok)
             .header("Content-Type", "text/plain")
@@ -20,8 +20,7 @@ async fn main() {
         .listener(TcpListener::bind("127.0.0.1:8080").await.unwrap())
         .handler(HelloWorld)
         .server_limits(ServerLimits {
-            max_connections: 25000,
-            max_pending_connections: 50000,
+            max_connections: 5000,
             ..ServerLimits::default()
         })
         .connection_limits(ConnLimits {

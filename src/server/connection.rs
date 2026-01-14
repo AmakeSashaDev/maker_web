@@ -85,6 +85,8 @@ impl<H: Handler<S>, S: ConnectionData> HttpConnection<H, S> {
 
     #[inline]
     pub(crate) async fn impl_run(&mut self, stream: &mut TcpStream) -> Result<(), ErrorKind> {
+        self.optimize_socket(stream)?;
+
         self.connection.reset();
         self.connection_data.reset();
 
@@ -120,6 +122,25 @@ impl<H: Handler<S>, S: ConnectionData> HttpConnection<H, S> {
 
         Ok(())
     }
+
+    #[inline]
+    fn optimize_socket(&self, stream: &TcpStream) -> io::Result<()> {
+        use socket2::SockRef;
+
+        let socket = SockRef::from(&stream);
+
+        socket.set_tcp_nodelay(true)?;
+
+        socket.set_recv_buffer_size(self.req_limits.precalc.buffer)?;
+        socket.set_send_buffer_size(self.resp_limits.max_capacity * 2)?;
+
+        #[cfg(target_os = "linux")]
+        {
+            socket.set_tcp_quickack(true)?;
+        }
+
+        Ok(())
+    }
 }
 
 impl ConnLimits {
@@ -142,8 +163,6 @@ impl ConnLimits {
         response: &[u8],
     ) -> Result<(), io::Error> {
         tokio::select! {
-            biased;
-
             result = stream.write_all(response) => result,
             _ = sleep(self.socket_write_timeout) => {
                 Err(io::Error::new(io::ErrorKind::TimedOut, "write timeout"))

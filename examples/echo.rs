@@ -1,5 +1,4 @@
 use maker_web::{Handled, Handler, Request, Response, Server, StatusCode};
-use std::str::from_utf8;
 use tokio::net::TcpListener;
 
 struct MyHandler;
