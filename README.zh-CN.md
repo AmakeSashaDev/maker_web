@@ -7,7 +7,7 @@
 [![版本](https://img.shields.io/crates/v/maker_web?label=版本)](https://crates.io/crates/maker_web)
 [![文档](https://img.shields.io/badge/文档-docs.rs-blue)](https://docs.rs/maker_web/latest/maker_web/)
 [![构建状态](https://github.com/AmakeSashaDev/maker_web/actions/workflows/ci.yml/badge.svg)](https://github.com/AmakeSashaDev/maker_web/actions)
-[![GitHub](https://img.shields.io/badge/GitHub-主仓库-181717?logo=github)](https://github.com/AmakeSashaDev/maker_web)
+[![GitHub](https://img.shields.io/badge/GitHub-主仓库-181717)](https://github.com/AmakeSashaDev/maker_web)
 
 <div align="right">
     <a href="https://github.com/AmakeSashaDev/maker_web/blob/main/README.md">English version 🇺🇸</a> | 中文版 🇨🇳
