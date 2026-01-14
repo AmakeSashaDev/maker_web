@@ -11,6 +11,8 @@ on:
       - 'benches/**'
       - '.github/**'
 
+  workflow_call: {}
+
   pull_request:
     branches: [ "main" ]
     paths-ignore:
