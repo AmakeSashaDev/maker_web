@@ -1,6 +1,8 @@
 <div align="center">
   <h1>maker_web</h1>
   <h3>Security-first, high-performance, zero-allocation HTTP server for microservices</h3>
+
+  The development of this project has been discontinued. It was an interesting experience for me, but for many reasons the decision was made to discontinue development. Farewell 😞 
 </div>
 
 [![Downloads](https://img.shields.io/crates/d/maker_web)](https://crates.io/crates/maker_web)
